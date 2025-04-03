@@ -1,0 +1,9 @@
+program: train_sweep.py
+method: bayes
+metric:
+  name: cc
+  goal: maximize
+parameters:
+  lr:
+    min: 0.000001
+    max: 0.001

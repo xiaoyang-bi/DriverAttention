@@ -1,0 +1,3 @@
+CUDA_VISIBLE_DEVICES=4 python run_clean.py --data_root /data/bxy/MultiModelAD/data/bd_test/ --dataset bd --save_model bd_binolocal_alpha_08_initprior_0.54019_1.40585 > logs/bd_binolocal_alpha_08_initprior_0.54019_1.40585_test.log 2>&1 &
+CUDA_VISIBLE_DEVICES=4 python run_clean.py --data_root /data/bxy/MultiModelAD/data/bd_test/ --dataset bd --save_model bd_binolocal_alpha_08_myselection_0.53714_1.41408 > logs/bd_binolocal_alpha_08_myselection_0.53714_1.41408_test.log 2>&1 &
+CUDA_VISIBLE_DEVICES=6 python run_clean.py --data_root /data/bxy/MultiModelAD/data/bd_test/ --dataset bd --save_model bd_binolocal_wo_keb_0.53648_1.41026 > logs/bd_binolocal_wo_keb_0.53648_1.41026_test.log 2>&1 &

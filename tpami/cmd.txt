@@ -1,0 +1,56 @@
+nohup python train.py --data-path ../atten_resize_dataset/dr/ --alpha 0.3  -b 32 --epochs 32  --advstart_epoch 2 --K 23 --T_adv 10  --lr_adv 1e-3 --lr 1e-4  --project_name FullData --name bayes_noisemuhf --use_wandb > bayes_noisemuhf.log 2>&1 &
+
+
+nohup python train.py --data-path ../atten_resize_dataset/dr/ --alpha 0.3  -b 32 --epochs 20  --lr 1e-3 --project_name Mixup --name atten_mixup --use_wandb > atten_mixup.log 2>&1 &
+nohup python train.py --data-path ../atten_resize_dataset/dr/ --alpha 0.3  -b 32 --epochs 20  --lr 1e-3 --project_name Mixup --name atten_mixup_shuffle --use_wandb > atten_mixup_shuffle.log 2>&1 &
+nohup python train.py --data-path ../atten_resize_dataset/dr/ --alpha 0.3  -b 32 --epochs 10  --lr 1e-3 --project_name Mixup --name atten_mixup_sep10 --use_wandb > atten_mixup_sep10.log 2>&1 &
+
+
+ python train.py --data-path ../atten_resize_dataset/dr/ --alpha 0.3  -b 32 --epochs 20  --lr 1e-3 --project_name Mixup --name atten_mixup 
+
+
+ #mixup 1
+nohup python train_mixup_trival.py --data-path ../atten_resize_dataset/dr/ --alpha 0.3  -b 32 --epochs 20  --lr 1e-3 --project_name Mixup --name atten_trivalmix_sf_1 --use_wandb > atten_trivalmix_sf_1.log 2>&1 &
+
+#p 0.4
+nohup python train.py --data-path ../atten_resize_dataset/dr/ --alpha 0.3  -b 32 --epochs 20  --lr 1e-3 --project_name Mixup --name atten_mixup_sf_04 --use_wandb > atten_mixup_sf_04.log 2>&1 &
+nohup python train.py --data-path ../atten_resize_dataset/dr/ --alpha 0.3  -b 32 --epochs 20  --lr 1e-3 --project_name Mixup --name atten_mixup_sf_07 --use_wandb > atten_mixup_sf_07.log 2>&1 &
+nohup python train.py --data-path ../atten_resize_dataset/dr/ --alpha 0.3  -b 32 --epochs 20  --lr 1e-3 --project_name Mixup --name atten_mixup_sf_10 --use_wandb > atten_mixup_sf_10.log 2>&1 &
+
+nohup python train.py --data-path ../atten_resize_dataset/dr/ --alpha 0.3  -b 32 --epochs 20  --lr 1e-3 --project_name Mixup --name atten_mixup_sf_09 --use_wandb > atten_mixup_sf_09.log 2>&1 &
+
+# 1e-4
+nohup python train.py --data-path ../atten_resize_dataset/dr/ --alpha 0.3  -b 32 --epochs 20  --lr 1e-4 --project_name Mixup --name atten_mixup_sf_10_l4 --use_wandb > atten_mixup_sf_10_l4.log 2>&1 &
+
+
+#7e-4 no warmup
+
+nohup python train.py --data-path ../atten_resize_dataset/dr/ --alpha 0.3  -b 32 --epochs 10  --lr 7e-4 --project_name Mixup --name atten_mixup_sf_74 --use_wandb > atten_mixup_sf_74.log 2>&1 &
+
+
+#resume
+
+nohup python train.py --data-path ../atten_resize_dataset/dr/ --alpha 0.3  -b 32 --epochs 27  --lr 1e-5 --resume save_weights/model_best_dr.pth --project_name Mixup --name atten_mixup_resume --use_wandb > atten_mixup_resume.log 2>&1 &
+
+
+# resuem but init train epoch
+nohup python train.py --data-path ../atten_resize_dataset/dr/ --alpha 0.3  -b 32 --epochs 10  --lr 1e-3 --resume save_weights/model_best_dr.pth --project_name Mixup --name atten_mixup_resume_l3 --use_wandb > atten_mixup_resume_l3.log 2>&1 &
+
+#sweep
+nohup python train_sweep.py --data-path ../atten_resize_dataset/dr/ --alpha 0.3  -b 32 --epochs 10  --project_name aug_sweep --name aug_sweep --use_wandb > aug_sweep.log 2>&1 &
+
+
+#resuem sweep 
+nohup python train_resume_sweep.py --data-path ../atten_resize_dataset/dr/ --alpha 0.3  -b 32 --epochs 1  --resume save_weights/model_best_dr.pth --project_name aug_sweep_resume --name aug_sweep_resume  --use_wandb > aug_sweep_resume.log 2>&1 &
+
+
+# dumcase_test
+nohup python train.py --data-path ../atten_resize_dataset/dr/ --alpha 0.3  -b 32 --epochs 20  --lr 1e-4 --project_name Mixup --name dumcase_test --use_wandb > dumcase_test.log 2>&1 &
+
+
+#resume 
+nohup python train.py --data-path ../atten_resize_dataset/dr/ --alpha 0.3  -b 32 --epochs 10  --lr 6e-4 --resume save_weights/model_best_dr.pth --project_name Mixup --name atten_mixup_resume_64 --use_wandb > atten_mixup_resume_64.log 2>&1 &
+nohup python train.py --data-path ../atten_resize_dataset/dr/ --alpha 0.3  -b 32 --epochs 10  --lr 6e-4 --resume save_weights/model_best_dr.pth --project_name Mixup --name atten_mixup_resume_trival --use_wandb > atten_mixup_resume_trival.log 2>&1 &
+
+
+nohup python train.py --data-path ../atten_resize_dataset/dr/ --alpha 0.3  -b 32 --epochs 10  --lr 5e-4 --resume save_weights/model_best_dr.pth --project_name Mixup --name atten_mixup_resume_54_p5 --use_wandb > atten_mixup_resume_54_p5.log 2>&1 &

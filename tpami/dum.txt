@@ -1,0 +1,1 @@
+python color_map.py /data/bxy/MultiModelAD/data/radiate/dum/infer_gaze/6.png /data/bxy/MultiModelAD/data/radiate/dum/stereo_undistorted/left/6.png  /data/bxy/MultiModelAD/data/radiate/dum/color_map/6.png
