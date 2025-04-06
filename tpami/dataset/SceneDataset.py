@@ -153,12 +153,12 @@ class SceneDataset(Dataset):
             # import pdb; pdb.set_trace()
             p = []
             # if self.use_msk:
-            # mall_path = self.root / scene / 'weighted_mask' / file
+            mall_path = self.root / scene / 'weighted_mask' / file
             # # mall_out_path = mall_out_dir / file
-            # if mall_path.exists():
-            #     mall = self.convert(mall_path)
-            # else:
-            #     mall = self.get_weighted_prior(scene, file)
+            if mall_path.exists():
+                mall = self.convert(mall_path)
+            else:
+                mall = self.get_weighted_prior(scene, file)
             # mall_out_dir.mkdir(parents=True, exist_ok=True)
             # mall_out_path = mall_out_dir / file
             
@@ -180,7 +180,7 @@ class SceneDataset(Dataset):
                 ps = self.convert(pesudo_path)
                         # print(mall.max())
                     # ps = ps * (mall + self.alpha)
-                # ps = ps * (mall+1)
+                ps = ps * (mall+1)
                 ps /= ps.max()
                 p.append(ps)
             return img, p

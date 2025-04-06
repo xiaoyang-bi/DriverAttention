@@ -162,6 +162,7 @@ def run_infer_mixup(args, model, data_loader, gaze_average, device, topK=4):
 def parse_args():
     parser = argparse.ArgumentParser(description="new model training")
     parser.add_argument("--data-path", default="./dataset", help="BDDA root")
+    parser.add_argument("--val-data-path", default="./dataset", help="BDDA root")
     parser.add_argument("--device", default="cuda", help="training device")
     parser.add_argument("-b", "--batch-size", default=32, type=int)
     parser.add_argument('--wd', '--weight-decay', default=1e-4, type=float,
@@ -181,6 +182,7 @@ def parse_args():
     parser.add_argument('--alpha', default=0.3, type=float, help="if alpha=-1, without mask")
     parser.add_argument('--project_name', default='prj', help="wandb project name")
     parser.add_argument('--name', default='', help="save_name")
+    parser.add_argument('--backbone', default='mobileViT', help="resnet/ConvNext/mobileViT/vgg/mobilenet/densenet")
     parser.add_argument('--loss_func', default='kld', help='bce/ce')
     parser.add_argument('--val_aucs', default=False, type=bool)
     # Mixed precision training parameters
@@ -256,7 +258,7 @@ def main(args):
 
     # val_dataset = SceneDataset(args.data_path, mode='val')
     # val_dataset = SceneDataset('/data/bxy/MultiModelAD/data/bd_test/', mode='test')
-    val_dataset = DrDataset('/data/bxy/MultiModelAD/data/da_test/', mode='test', cam_subdir='camera', gaze_subdir='gaze')
+    val_dataset = DrDataset(args.val_data_path, mode='test', cam_subdir='camera', gaze_subdir='gaze')
     # val_noise_dataset_snow = SceneDataset(args.data_path, mode='val_snow', p_dic=args.p_dic,  noise_type='snow')
     train_dataset = SceneDataset(args.data_path, mode='train', p_dic = args.p_dic,  alpha=args.alpha, prior=args.prior)
     num_workers = min([os.cpu_count(), batch_size if batch_size > 1 else 0, 8])
@@ -271,6 +273,7 @@ def main(args):
     print('length of train_batch_size: %d' % batch_size )
     print('length of  train_dataset: %d' % len(train_dataset))
     print('prior: {}'.format(args.prior))
+    print('use pseudo labels: {}'.format(args.p_dic))
     val_data_loader = data.DataLoader(val_dataset,
                                       batch_size=1,  # must be 1
                                       num_workers=num_workers,
@@ -286,7 +289,7 @@ def main(args):
     
     if args.model == 'uncertainty-m':
         from models.model import Model
-        model = Model('mobileViT', input_dim=args.input_channel)
+        model = Model(args.backbone, input_dim=args.input_channel)
     else: raise NotImplementedError
     model = model.to(device)
 

@@ -243,6 +243,8 @@ class UncertaintyBlock(nn.Module):
         list_block = []
         for i in range(n):
             list_block.append(ResidualBlock(p_input * 3, p_input, 1))
+        # for i in range(n):
+        #     list_block.append(ResidualBlock(p_input * 2, p_input, 1))
         self.rs4 = nn.ModuleList(list_block)
 
     def forward(self, x, p):
@@ -250,17 +252,20 @@ class UncertaintyBlock(nn.Module):
         x = self.rs1(x)
         for index, m in enumerate(self.rs2):
             p[index] = m(p[index])
-        # c = x
-        # c = torch.concat([c, *p], dim=1)
         
-        # first compress_p
+        # bi-non-local part
         compress_p = self.rs_compress(torch.cat(p, dim=1))
         x, compress_p = self.bi_nlb(x, compress_p) #
-        # c = self.seb(c)
-        # c = self.rs3(c)
         p = [torch.concat([ps, compress_p, x], dim=1) for ps in p]
         for index, m in enumerate(self.rs4):
             p[index] = m(p[index])
+        
+        # c = x
+        # c = torch.concat([c, *p], dim=1)
+        # p = [torch.concat([ps, c], dim=1) for ps in p]
+        # for index, m in enumerate(self.rs4):
+        #     p[index] = m(p[index])
+        
         return p
 
 
@@ -283,7 +288,7 @@ class Model(nn.Module):
         self.first_conv = nn.ModuleList(list_block)
         # 不应该share weights
         self.mode = backbone
-
+        # import pdb; pdb.set_trace()
         if backbone == 'resnet':
             print('resnet backbone')
             self.backbone = ResNetModel(train_enc=True)
@@ -329,6 +334,8 @@ class Model(nn.Module):
             self.ub1 = UncertaintyBlock(96, dim, self.n)
             self.ub2 = UncertaintyBlock(192, dim, self.n)
             self.ub3 = UncertaintyBlock(1056, dim, self.n)
+        else:
+            raise NotImplementedError
         list_block = []
         for i in range(self.n):
             list_block.append(nn.Conv2d(dim, 1, kernel_size=1))
@@ -344,13 +351,15 @@ class Model(nn.Module):
     #         pass
 
     def forward(self, x, p=None):
+        # import pdb; pdb.set_trace()
         # features = self.nw_enc(x)
         # outputs = self.nw_dec(features)
         # disp = outputs[("disp", 0)]
         # x = x * (disp / disp.max())
 
+        # import pdb; pdb.set_trace()
         y, results = self.backbone(x)
-        self.heatmap = self.process_output(y)
+        # self.heatmap = self.process_output(y)
         if p is None:
             return y
 
@@ -368,9 +377,15 @@ class Model(nn.Module):
             results[2] = self.upsample2x(results[2])
             results[3] = self.upsample4x(results[3])
             results[4] = self.upsample8x(results[4])
+            # e = self.ub1(results[0], e)
+            # e = self.ub2(results[1], e)
+            # e = self.ub3(results[3], e)
         elif self.mode == 'vgg':
             results[0] = self.downsample2x(results[0])
             results[2] = self.upsample4x(results[2])
+            # e = self.ub1(results[0], e)
+            # e = self.ub2(results[1], e)
+            # e = self.ub3(results[2], e)
         elif self.mode == 'mobilenet':
             results[0] = self.downsample2x(results[0])
             results[2] = self.upsample4x(results[2])
@@ -378,21 +393,24 @@ class Model(nn.Module):
             results[0] = self.downsample2x(results[0])
             results[2] = self.upsample4x(results[2])
 
-        # import pdb; pdb.set_trace()
-        e = self.ub1(results[0], e)
-        e = self.ub2(results[1], e)
-        e = self.ub3(results[3], e)
-        # e = self.ub4(results[3], e)
-        # e = self.ub5(results[4], e)
+        # # import pdb; pdb.set_trace()
+        
+        if self.mode == 'mobileViT':
+            e = self.ub1(results[0], e)
+            e = self.ub2(results[1], e)
+            e = self.ub3(results[3], e)
+        else:
+            e = self.ub1(results[0], e)
+            e = self.ub2(results[1], e)
+            e = self.ub3(results[2], e)            
 
         e = [self.upsample4x(ps) for ps in e]
         for index, m in enumerate(self.conv):
             e[index] = m(e[index])
         e = [torch.sigmoid(ps) for ps in e]
-        # e = [torch.relu(ps) for ps in e]
-        # p = [ps.split(1, dim=1) for ps in p]
-        # e = [ps[0] for ps in p]
-        # s = [ps[1] for ps in p]
+        
+        # e = [torch.zeros(p_.shape, dtype=p_.dtype, device=p_.device) for p_ in p]
+
 
         return y, e
 
