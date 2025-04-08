@@ -79,6 +79,36 @@ def full(pred, gt):
     return loss
 
 
+def evaluate_batch(args, model, data_loader, device):
+    # import pdb; pdb.set_trace()
+    model.eval()
+    kld_metric = utils.KLDivergence()
+    cc_metric = utils.CC()
+    if args.val_aucs:
+        aucs_metric = utils.SAuc()
+    metric_logger = utils.MetricLogger(delimiter="  ")
+    header = 'Test:'
+    with torch.no_grad():
+        os.makedirs('./output', exist_ok=True)
+        count = 0
+        for images, targets in metric_logger.log_every(data_loader, 100, header):
+            images, targets = images.to(device), targets.to(device)
+            if args.model.find('uncertainty') != -1:
+                output = model(images)
+            else:
+                output, _ = model(images)
+            batch_size = images.size(0)
+            for i in range(batch_size):
+                kld_metric.update(output[i].unsqueeze(0), targets[i].unsqueeze(0))
+                cc_metric.update(output[i].unsqueeze(0), targets[i].unsqueeze(0))
+                if args.val_aucs:
+                    aucs_metric.update(output[i].unsqueeze(0), targets[i].unsqueeze(0))
+    if args.val_aucs:
+        return kld_metric, cc_metric, aucs_metric
+    else:
+        return kld_metric, cc_metric
+
+
 def evaluate(args, model, data_loader, device):
     model.eval()
     # mae_metric = utils.MeanAbsoluteError()
@@ -159,7 +189,7 @@ def train_one_epoch(args, model, optimizer, data_loader, val_data_loader, val_sn
                         "args": args}
 
                 
-                kld_metric, cc_metric = evaluate(args, model, val_data_loader, device=device)
+                kld_metric, cc_metric = evaluate_batch(args, model, val_data_loader, device=device)
                 kld_info, cc_info = kld_metric.compute(), cc_metric.compute()
                 print(f"[epoch: {epoch}] val_kld: {kld_info:.3f} val_cc: {cc_info:.3f}")
                 # print(f"[epoch: {epoch}] val_kld: {kld_snow_info:.3f} val_cc: {cc_snow_info:.3f}")

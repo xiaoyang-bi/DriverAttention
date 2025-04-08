@@ -1,7 +1,10 @@
 *.log
 save_weights/
 output/
+*.pt
+*.pth
 models/*.pt
+models/*.pth
 .vscode/
 */__pycache__
 wandb/

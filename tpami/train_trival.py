@@ -285,11 +285,10 @@ def main(args):
 
     print(len(val_data_loader))
     
-
-    
+    # import pdb; pdb.set_trace()
     if args.model == 'uncertainty-m':
         from models.model import Model
-        model = Model(args.backbone, input_dim=args.input_channel)
+        model = Model(args.backbone, input_dim=args.input_channel, n=len(args.p_dic))
     else: raise NotImplementedError
     model = model.to(device)
 

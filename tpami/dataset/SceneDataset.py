@@ -153,7 +153,7 @@ class SceneDataset(Dataset):
             # import pdb; pdb.set_trace()
             p = []
             # if self.use_msk:
-            mall_path = self.root / scene / 'weighted_mask' / file
+            mall_path = self.root / scene / 'weighted_mask_wo_norm' / file
             # # mall_out_path = mall_out_dir / file
             if mall_path.exists():
                 mall = self.convert(mall_path)

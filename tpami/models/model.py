@@ -11,8 +11,28 @@ from models.nonLocal import NONLocalBlock2D
 from models.NonLocalCross import BiNonLocalBlock2D
 from models.models import ConvNextModel, ResNetModel, VGGModel, MobileNetV2, DenseModel
 from models.MobileViT import mobile_vit_small
+from models.swin_transfomer_v2 import SwinTransformerV2
 import cv2
 from torch import Tensor
+
+def build_swinv2_model(config):
+    model = SwinTransformerV2(img_size=config.DATA.IMG_SIZE,
+                            patch_size=config.MODEL.SWINV2.PATCH_SIZE,
+                            in_chans=config.MODEL.SWINV2.IN_CHANS,
+                            num_classes=config.MODEL.NUM_CLASSES,
+                            embed_dim=config.MODEL.SWINV2.EMBED_DIM,
+                            depths=config.MODEL.SWINV2.DEPTHS,
+                            num_heads=config.MODEL.SWINV2.NUM_HEADS,
+                            window_size=config.MODEL.SWINV2.WINDOW_SIZE,
+                            mlp_ratio=config.MODEL.SWINV2.MLP_RATIO,
+                            qkv_bias=config.MODEL.SWINV2.QKV_BIAS,
+                            drop_rate=config.MODEL.DROP_RATE,
+                            drop_path_rate=config.MODEL.DROP_PATH_RATE,
+                            ape=config.MODEL.SWINV2.APE,
+                            patch_norm=config.MODEL.SWINV2.PATCH_NORM,
+                            use_checkpoint=config.TRAIN.USE_CHECKPOINT,
+                            pretrained_window_sizes=config.MODEL.SWINV2.PRETRAINED_WINDOW_SIZES)
+    return model
 
 
 class BasicBlock(nn.Module):
@@ -248,12 +268,12 @@ class UncertaintyBlock(nn.Module):
         self.rs4 = nn.ModuleList(list_block)
 
     def forward(self, x, p):
-        # import pdb; pdb.set_trace()
         x = self.rs1(x)
         for index, m in enumerate(self.rs2):
             p[index] = m(p[index])
         
         # bi-non-local part
+        # import pdb; pdb.set_trace()
         compress_p = self.rs_compress(torch.cat(p, dim=1))
         x, compress_p = self.bi_nlb(x, compress_p) #
         p = [torch.concat([ps, compress_p, x], dim=1) for ps in p]
@@ -270,9 +290,9 @@ class UncertaintyBlock(nn.Module):
 
 
 class Model(nn.Module):
-    def __init__(self, backbone, dim=32, input_dim=3):
+    def __init__(self, backbone, dim=32, input_dim=3, n=2):
         super(Model, self).__init__()
-        self.n = len(os.listdir('./pseudo_labels'))
+        self.n = n
         list_block = []
         for i in range(self.n):
             list_block.append(Conv2dNormActivation(
@@ -334,6 +354,23 @@ class Model(nn.Module):
             self.ub1 = UncertaintyBlock(96, dim, self.n)
             self.ub2 = UncertaintyBlock(192, dim, self.n)
             self.ub3 = UncertaintyBlock(1056, dim, self.n)
+        elif backbone == 'swinv2b':
+            # import pdb; pdb.set_trace()
+            from models.swinv2_config import get_config
+            config = get_config("models/swinv2_base_patch4_window8_256.yaml")
+            self.backbone = build_swinv2_model(config)
+            
+            weights_dict = torch.load('models/swinv2_base_patch4_window8_256.pth', map_location='cpu')
+            weights_dict = weights_dict["model"] if "model" in weights_dict else weights_dict
+            # 删除有关分类类别的权重
+            for k in list(weights_dict.keys()):
+                if "classifier" in k:
+                    del weights_dict[k]
+            self.backbone.load_state_dict(weights_dict, strict=False)
+            
+            self.ub1 = UncertaintyBlock(256, dim, self.n)
+            self.ub2 = UncertaintyBlock(512, dim, self.n)
+            self.ub3 = UncertaintyBlock(1024, dim, self.n)
         else:
             raise NotImplementedError
         list_block = []
@@ -344,6 +381,11 @@ class Model(nn.Module):
         self.upsample2x = nn.UpsamplingBilinear2d(scale_factor=2)
         self.upsample4x = nn.UpsamplingBilinear2d(scale_factor=4)
         self.upsample8x = nn.UpsamplingBilinear2d(scale_factor=8)
+        self.upsample1_75x = nn.UpsamplingBilinear2d(scale_factor=1.75)
+        self.upsample3_5x = nn.UpsamplingBilinear2d(scale_factor=3.5)
+        self.upsample7x = nn.UpsamplingBilinear2d(scale_factor=7)
+        
+        
 
         self.downsample2x = nn.MaxPool2d(kernel_size=2, stride=2)
 
@@ -357,6 +399,10 @@ class Model(nn.Module):
         # disp = outputs[("disp", 0)]
         # x = x * (disp / disp.max())
 
+        # import pdb; pdb.set_trace()
+        if self.mode == 'swinv2b':
+            # x of shape [32, 3, 224, 224]
+            x = F.interpolate(x, size=(256, 256), mode='bilinear', align_corners=False)
         # import pdb; pdb.set_trace()
         y, results = self.backbone(x)
         # self.heatmap = self.process_output(y)
@@ -392,9 +438,13 @@ class Model(nn.Module):
         elif self.mode == 'densenet':
             results[0] = self.downsample2x(results[0])
             results[2] = self.upsample4x(results[2])
+        elif self.mode == 'swinv2b':
+            results[0] = self.upsample1_75x(results[0])
+            results[1] = self.upsample3_5x(results[1])
+            results[3] = self.upsample7x(results[3])
+            
 
-        # # import pdb; pdb.set_trace()
-        
+        # # import pdb; pdb.set_trace() 
         if self.mode == 'mobileViT':
             e = self.ub1(results[0], e)
             e = self.ub2(results[1], e)
@@ -402,7 +452,7 @@ class Model(nn.Module):
         else:
             e = self.ub1(results[0], e)
             e = self.ub2(results[1], e)
-            e = self.ub3(results[2], e)            
+            e = self.ub3(results[3], e)            
 
         e = [self.upsample4x(ps) for ps in e]
         for index, m in enumerate(self.conv):
