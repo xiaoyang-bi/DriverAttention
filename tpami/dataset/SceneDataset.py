@@ -23,7 +23,7 @@ class SceneDataset(Dataset):
                   p_dic = None,
                   sample_num = -1,
                   noise_type:str = None,
-                  prior=None):
+                  use_prior=True):
         '''
         mode should include:
         train, val, test, infer, run_example
@@ -38,12 +38,13 @@ class SceneDataset(Dataset):
         self.severity = severity
         self.noise_type = noise_type
         self.p_dic:list = p_dic
-        self.use_msk = alpha > 0
-        self.alpha =alpha
+        # self.use_msk = alpha > 0
+        # self.alpha =alpha
         self.infer_gaze_subdir = infer_gaze_subdir
         self.gaze_average = None
         # import pdb; pdb.set_trace()
-        self.prior = prior
+        # self.prior = prior
+        self.use_prior = use_prior
         # self.kl_db:dict = None
 
 
@@ -139,6 +140,24 @@ class SceneDataset(Dataset):
         # mall = (mall - mall.min()) / (mall.max() - mall.min() + 1e-5) 
         # mall = torch.sigmoid(mall)
         return mall
+    
+    def get_pseudos(self, scene, file):
+        p = []
+        if self.use_prior:
+            mall_path = self.root / scene / 'weighted_mask_wo_norm' / (file.split('.')[0] + '.npy')
+            if mall_path.exists():
+                mall = torch.from_numpy(np.load(mall_path))
+            else:
+                mall = self.get_weighted_prior(scene, file)
+        
+        for p_type in self.p_dic:
+            pesudo_path = str(self.root / scene / p_type / file)
+            ps = self.convert(pesudo_path)
+            if self.use_prior:
+                ps = ps * (mall+1)
+            ps /= ps.max()
+            p.append(ps)
+        return p
         
     def __getitem__(self, i):
         file, scene = self.file_scene_list[i]
@@ -150,46 +169,12 @@ class SceneDataset(Dataset):
         # import pdb; pdb.set_trace()
         if self.mode == 'train':
             # import pdb; pdb.set_trace()
-            p = []
-            # if self.use_msk:
-            mall_path = self.root / scene / 'weighted_mask_wo_norm' / (file.split('.')[0] + '.npy')
-            # mall_out_path = mall_out_dir / file
-            if mall_path.exists():
-                # mall = self.convert(mall_path)
-                mall = torch.from_numpy(np.load(mall_path))
-            else:
-                mall = self.get_weighted_prior(scene, file)
-            # import pdb; pdb.set_trace()
-            
             # mall = self.get_weighted_prior(scene, file)
             # mall_out_dir = self.root / scene / 'weighted_mask_wo_norm' 
             # mall_out_dir.mkdir(parents=True, exist_ok=True)
             # mall_out_path = mall_out_dir / (file.split('.')[0] + '.npy')
             # np.save(mall_out_path, mall.numpy())
-            
-            
-            
-            
-            
-            # mall_out = (mall * 255).to(torch.uint8).numpy()[0]
-            # mall_out = Image.fromarray(mall_out, mode='L')
-            # mall_out.save(mall_out_path)
-            # return mall
-            # if self.use_msk:
-            #     if self.prior is not None:
-            #         mall = self.get_mall_by_prior(scene, file)
-            #     else:
-            #         mask_path = str(self.root / scene / self.mask_subdir / file)
-            #         mall = self.convert(mask_path)
-                
-            for p_type in self.p_dic:
-                pesudo_path = str(self.root / scene / p_type / file)
-                ps = self.convert(pesudo_path)
-                        # print(mall.max())
-                    # ps = ps * (mall + self.alpha)
-                ps = ps * (mall+1)
-                ps /= ps.max()
-                p.append(ps)
+            p = self.get_pseudos(scene, file)
             return img, p
         elif self.mode.startswith('val') or self.mode == 'test':
             gaze_path = str(self.root / scene / self.gaze_subdir / file)
@@ -212,17 +197,17 @@ class SceneDataset(Dataset):
             output_folder = str(self.root / scene / self.out_folder)
             os.makedirs(output_folder, exist_ok=True)
             out_test_path = str(self.root / scene / self.out_folder / file)
-
-            p = []
-            for p_type in self.p_dic:
-                pesudo_path = str(self.root / scene / p_type / file)
-                ps = self.convert(pesudo_path)
-                # if self.use_msk:
-                mask_path = str(self.root / scene / self.mask_subdir / file)
-                mall = self.convert(mask_path)
-                ps = ps * (mall + self.alpha)
-                ps /= ps.max()
-                p.append(ps)
+            p = self.get_pseudos(scene, file)
+            # p = []
+            # for p_type in self.p_dic:
+            #     pesudo_path = str(self.root / scene / p_type / file)
+            #     ps = self.convert(pesudo_path)
+            #     # if self.use_msk:
+            #     mask_path = str(self.root / scene / self.mask_subdir / file)
+            #     mall = self.convert(mask_path)
+            #     ps = ps * (mall + self.alpha)
+            #     ps /= ps.max()
+            #     p.append(ps)
             return img, p, out_test_path
         elif self.mode == 'cal':
             gaze_path = str(self.root / scene / self.infer_gaze_subdir / file)

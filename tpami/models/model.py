@@ -248,9 +248,10 @@ class ResidualBlock(nn.Module):
 
 
 class UncertaintyBlock(nn.Module):
-    def __init__(self, img_input, p_input, n):
+    def __init__(self, img_input, p_input, n, use_nonlocal=True):
         super(UncertaintyBlock, self).__init__()
         self.rs1 = ResidualBlock(img_input, p_input, 1)
+        self.use_nonlocal = use_nonlocal
         list_block = []
         for i in range(n):
             list_block.append(ResidualBlock(p_input, p_input, 1))
@@ -276,24 +277,27 @@ class UncertaintyBlock(nn.Module):
         # bi-non-local part
         # import pdb; pdb.set_trace()
         compress_p = self.rs_compress(torch.cat(p, dim=1))
-        x, compress_p = self.bi_nlb(x, compress_p) #
+        if self.use_nonlocal:
+            x, compress_p = self.bi_nlb(x, compress_p) #
         p = [torch.concat([ps, compress_p, x], dim=1) for ps in p]
         for index, m in enumerate(self.rs4):
             p[index] = m(p[index])
-        
-        # c = x
-        # c = torch.concat([c, *p], dim=1)
-        # p = [torch.concat([ps, c], dim=1) for ps in p]
-        # for index, m in enumerate(self.rs4):
-        #     p[index] = m(p[index])
+        # else:
+        # # c = x
+        #     c = torch.concat([c, *p], dim=1)
+        #     p = [torch.concat([ps, c], dim=1) for ps in p]
+        #     for index, m in enumerate(self.rs4):
+        #         p[index] = m(p[index])
         
         return p
 
 
 class Model(nn.Module):
-    def __init__(self, backbone, dim=32, input_dim=3, n=2):
+    def __init__(self, backbone, dim=32, input_dim=3, n=2, use_unc=True, use_nonlocal=True):
         super(Model, self).__init__()
         self.n = n
+        self.use_unc = use_unc
+        self.use_nonlocal = use_nonlocal
         list_block = []
         for i in range(self.n):
             list_block.append(Conv2dNormActivation(
@@ -313,15 +317,15 @@ class Model(nn.Module):
         if backbone == 'resnet':
             print('resnet backbone')
             self.backbone = ResNetModel(train_enc=True)
-            self.ub1 = UncertaintyBlock(64, dim, self.n)
-            self.ub2 = UncertaintyBlock(256, dim, self.n)
-            self.ub3 = UncertaintyBlock(1024, dim, self.n)
+            self.ub1 = UncertaintyBlock(64, dim, self.n, self.use_nonlocal)
+            self.ub2 = UncertaintyBlock(256, dim, self.n, self.use_nonlocal)
+            self.ub3 = UncertaintyBlock(1024, dim, self.n, self.use_nonlocal)
         elif backbone == 'ConvNext':
             print('ConvNext backbone')
             self.backbone = ConvNextModel()
-            self.ub1 = UncertaintyBlock(96, dim, self.n)
-            self.ub2 = UncertaintyBlock(192, dim, self.n)
-            self.ub3 = UncertaintyBlock(384, dim, self.n)
+            self.ub1 = UncertaintyBlock(96, dim, self.n, self.use_nonlocal)
+            self.ub2 = UncertaintyBlock(192, dim, self.n, self.use_nonlocal)
+            self.ub3 = UncertaintyBlock(384, dim, self.n, self.use_nonlocal)
         elif backbone == 'mobileViT':
             print('mobileViT backbone')
             self.backbone = mobile_vit_small()
@@ -332,29 +336,29 @@ class Model(nn.Module):
                 if "classifier" in k:
                     del weights_dict[k]
             self.backbone.load_state_dict(weights_dict, strict=False)
-            self.ub1 = UncertaintyBlock(32, dim, self.n)
-            self.ub2 = UncertaintyBlock(64, dim, self.n)
-            self.ub3 = UncertaintyBlock(128, dim, self.n)
+            self.ub1 = UncertaintyBlock(32, dim, self.n, self.use_nonlocal)
+            self.ub2 = UncertaintyBlock(64, dim, self.n, self.use_nonlocal)
+            self.ub3 = UncertaintyBlock(128, dim, self.n, self.use_nonlocal)
             # self.ub4 = UncertaintyBlock(128, dim, self.n)
             # self.ub5 = UncertaintyBlock(160, dim, self.n)
         elif backbone == 'vgg':
             print('vgg backbone')
             self.backbone = VGGModel(train_enc=True)
-            self.ub1 = UncertaintyBlock(128, dim, self.n)
-            self.ub2 = UncertaintyBlock(256, dim, self.n)
-            self.ub3 = UncertaintyBlock(512, dim, self.n)
+            self.ub1 = UncertaintyBlock(128, dim, self.n, self.use_nonlocal)
+            self.ub2 = UncertaintyBlock(256, dim, self.n, self.use_nonlocal)
+            self.ub3 = UncertaintyBlock(512, dim, self.n, self.use_nonlocal)
         elif backbone == 'mobilenet':
             print('mobilenet v2 backbone')
             self.backbone = MobileNetV2(train_enc=True)
-            self.ub1 = UncertaintyBlock(16, dim, self.n)
-            self.ub2 = UncertaintyBlock(24, dim, self.n)
-            self.ub3 = UncertaintyBlock(96, dim, self.n)
+            self.ub1 = UncertaintyBlock(16, dim, self.n, self.use_nonlocal)
+            self.ub2 = UncertaintyBlock(24, dim, self.n, self.use_nonlocal)
+            self.ub3 = UncertaintyBlock(96, dim, self.n, self.use_nonlocal)
         elif backbone == 'densenet':
             print('densenet backbone')
             self.backbone = DenseModel(train_enc=True)
-            self.ub1 = UncertaintyBlock(96, dim, self.n)
-            self.ub2 = UncertaintyBlock(192, dim, self.n)
-            self.ub3 = UncertaintyBlock(1056, dim, self.n)
+            self.ub1 = UncertaintyBlock(96, dim, self.n, self.use_nonlocal)
+            self.ub2 = UncertaintyBlock(192, dim, self.n, self.use_nonlocal)
+            self.ub3 = UncertaintyBlock(1056, dim, self.n, self.use_nonlocal)
         elif backbone == 'swinv2b':
             # import pdb; pdb.set_trace()
             # from models.swinv2_config import get_config
@@ -369,9 +373,9 @@ class Model(nn.Module):
             #         del weights_dict[k]
             # self.backbone.load_state_dict(weights_dict, strict=False)
             self.backbone = SwinV2Regression()
-            self.ub1 = UncertaintyBlock(128, dim, self.n)
-            self.ub2 = UncertaintyBlock(256, dim, self.n)
-            self.ub3 = UncertaintyBlock(512, dim, self.n)
+            self.ub1 = UncertaintyBlock(128, dim, self.n, self.use_nonlocal)
+            self.ub2 = UncertaintyBlock(256, dim, self.n, self.use_nonlocal)
+            self.ub3 = UncertaintyBlock(512, dim, self.n, self.use_nonlocal)
         else:
             raise NotImplementedError
         list_block = []
@@ -412,6 +416,10 @@ class Model(nn.Module):
         # self.heatmap = self.process_output(y)
         if p is None:
             return y
+        
+        if not self.use_unc:
+            e = [torch.zeros(p_.shape, dtype=p_.dtype, device=p_.device) for p_ in p]
+            return y, e
 
         e = []
         for index, m in enumerate(self.first_conv):

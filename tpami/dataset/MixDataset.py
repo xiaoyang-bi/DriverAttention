@@ -35,6 +35,7 @@ class MixDataset(Dataset):
         self.out_folder = infer_gaze_subdir
         assert os.path.exists(root), f"path '{root}' does not exists."
         self.root = Path(root)
+        self.mix_dir = mix_dir
         self.scenes = [self.root/mix_dir]
         os.makedirs(self.scenes[0], exist_ok=True)
         if os.path.exists(str(self.scenes[0]/(self.cam_subdir + '_224_224'))):
@@ -61,7 +62,7 @@ class MixDataset(Dataset):
         # self.file_scene_list = self.file_scene_list[:1000]
 
     def clear(self):
-        mix_data_dir = (self.root/args.mix_dir) #rm all
+        mix_data_dir = (self.root/self.mix_dir) #rm all
         if mix_data_dir.exists() and mix_data_dir.is_dir():
             shutil.rmtree(mix_data_dir)
             print(f"'{mix_data_dir}' directory has been removed.")

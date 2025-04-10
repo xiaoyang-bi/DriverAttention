@@ -193,6 +193,14 @@ def parse_args():
     #==================for aug strategy===============================
     parser.add_argument('--mix_dir', default='mix_data', help="dir to save the mixupdata")
     parser.add_argument('--topK', default=8, type=int)
+    
+    #===================for ablation study=============================
+    parser.add_argument('--use_prior', default=1, type=int)
+    parser.add_argument('--use_unc', default=1, type=int)
+    parser.add_argument('--use_nonlocal', default=1, type=int)
+    
+    
+    
     args = parser.parse_args()
 
     return args
@@ -251,6 +259,9 @@ def main(args):
         
     print('infer mixup data in: {}'.format(args.mix_dir))
     print('top K: {}'.format(args.topK))
+    print('use prior :{}'.format(args.use_prior))
+    print('use unc: {}'.format(args.use_unc))
+    print('use nonlocal: {}'.format(args.use_nonlocal))
     
 
 
@@ -259,8 +270,8 @@ def main(args):
     num_workers = min([os.cpu_count(), batch_size if batch_size > 1 else 0, 16])
     print(args.data_path)
 
-    val_dataset = SceneDataset(args.data_path, mode='val')
-    val_noise_dataset_snow = SceneDataset(args.data_path, mode='val_snow', p_dic=args.p_dic,  noise_type='snow')
+    val_dataset = SceneDataset(args.data_path, mode='val', use_prior=args.use_prior)
+    val_noise_dataset_snow = SceneDataset(args.data_path, mode='val_snow', p_dic=args.p_dic,  noise_type='snow', use_prior=args.use_prior)
 
     
     print('data loader workers number: %d' % num_workers)
@@ -280,7 +291,7 @@ def main(args):
     
     if args.model == 'uncertainty-m':
         from models.model import Model
-        model = Model('mobileViT', input_dim=args.input_channel)
+        model = Model('mobileViT', input_dim=args.input_channel, use_unc=args.use_unc, use_nonlocal=args.use_nonlocal)
     else: raise NotImplementedError
     model = model.to(device)
 
@@ -297,7 +308,7 @@ def main(args):
 
     start_time = time.time()
     mix_train_dataset = None
-    init_train_dataset = SceneDataset(args.data_path, mode='train', p_dic = args.p_dic,  alpha=args.alpha)
+    init_train_dataset = SceneDataset(args.data_path, mode='train', p_dic = args.p_dic, use_prior=args.use_prior)
     
 
     start_time = time.time()
@@ -349,7 +360,7 @@ def main(args):
         init mixup and infer the distribution
         '''#mixup
         print('infering the dataset to get distirbution')
-        init_infer_dataset= SceneDataset(args.data_path, mode='infer')
+        init_infer_dataset= SceneDataset(args.data_path, mode='infer', use_prior=args.use_prior)
         infer_dataloader = data.DataLoader(init_infer_dataset,
                             batch_size=args.batch_size,  
                             num_workers=num_workers,
@@ -363,7 +374,7 @@ def main(args):
         mix dataset infer and get data for next time
         '''
         print('generating mixup data')
-        init_infer_dataset = SceneDataset(args.data_path, mode='infer_mix', p_dic = args.p_dic,  alpha=args.alpha)
+        init_infer_dataset = SceneDataset(args.data_path, mode='infer_mix', p_dic = args.p_dic, use_prior=args.use_prior)
         #SHUFFLE ?
         init_infer_dataloader = data.DataLoader(init_infer_dataset,
                                     batch_size=args.batch_size,  
@@ -382,7 +393,7 @@ def main(args):
 
         #train set
         print('select the mixup data')
-        mix_train_dataset= MixDataset(args.data_path, mode='train', mix_dir=args.mix_dir)
+        mix_train_dataset= MixDataset(args.data_path, mode='train', mix_dir=args.mix_dir, p_dic=['0'] if len(args.p_dic) == 1 else ['0', '1'])
         kl_db = mix_train_dataset.get_data_by_kl(kl_db, gaze_average)
         write_csv(args.name + 'aug', epoch, kl_db)
 
