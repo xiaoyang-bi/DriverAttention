@@ -588,38 +588,82 @@ class SwinTransformerV2(nn.Module):
             bly._init_respostnorm()
             
             
-        # U-net like decoder
         self.linear_upsampling_2d = nn.UpsamplingBilinear2d(scale_factor=2)
-        self.linear_upsampling_7d = nn.UpsamplingBilinear2d(scale_factor=7)
+        self.linear_upsampling_4d = nn.UpsamplingBilinear2d(scale_factor=4)
+        self.linear_upsampling_1_75d = nn.UpsamplingBilinear2d(scale_factor=1.75)
+        # inverse init size 1024, 8, 8; 512 8 8; 512 16 16; 256 32 32
+        # inverse resize to 1024, 8, 8; 512, 32, 32; 512 64 64; 256 128 128
+        # self.upconv_1 = nn.Sequential(
+        #     nn.ConvTranspose2d(in_channels=256, out_channels=128, kernel_size=2, stride=2, padding=2)
+        #     nn.BatchNorm2d(256),
+        #     nn.ReLU(inplace=True),
+        #     nn.ConvTranspose2d(in_channels=128, out_channels=128, kernel_size=2, stride=2, padding=2)
+        #     nn.BatchNorm2d(128),
+        #     nn.ReLU(inplace=True),
+        # )
+        
+        # self.upconv_2 = nn.Sequential(
+        #     nn.ConvTranspose2d(in_channels=512, out_channels=256, kernel_size=2, stride=2, padding=2)
+        #     nn.BatchNorm2d(256),
+        #     nn.ReLU(inplace=True),
+        #     nn.ConvTranspose2d(in_channels=256, out_channels=256, kernel_size=2, stride=2, padding=2)
+        #     nn.BatchNorm2d(128),
+        #     nn.ReLU(inplace=True),
+        # )
+        
+        # self.upconv_3 = nn.Sequential(
+        #     nn.ConvTranspose2d(in_channels=256, out_channels=128, kernel_size=2, stride=2, padding=2)
+        #     nn.BatchNorm2d(256),
+        #     nn.ReLU(inplace=True),
+        #     nn.ConvTranspose2d(in_channels=128, out_channels=128, kernel_size=2, stride=2, padding=2)
+        #     nn.BatchNorm2d(128),
+        #     nn.ReLU(inplace=True),
+        # )
+        # self.upconv_2 = 
+        #     nn.ConvTranspose2d(in_channels=512, out_channels=512, kernel_size=8, stride=4, padding=2)
+        # self.upconv_3 = nn.ConvTranspose2d(in_channels=1024, out_channels=1024, kernel_size=8, stride=4, padding=2)
+        
         
         self.deconv_layer0 = nn.Sequential(
             nn.Conv2d(in_channels=1024, out_channels=512, kernel_size=3, padding=1, bias=True),
+            nn.BatchNorm2d(1024),
             nn.ReLU(inplace=True),
+            # self.linear_upsampling_4d
             # self.linear_upsampling
         )
         self.deconv_layer1 = nn.Sequential(
             nn.Conv2d(in_channels=1024+512, out_channels=512, kernel_size=3, padding=1, bias=True),
+            nn.BatchNorm2d(512),
             nn.ReLU(inplace=True),
             self.linear_upsampling_2d,
+
         )
         self.deconv_layer2 = nn.Sequential(
             nn.Conv2d(in_channels=512+512, out_channels=256, kernel_size=3, padding=1, bias=True),
-            # nn.BatchNorm2d(128),
+            nn.BatchNorm2d(512),
             nn.ReLU(inplace=True),
             self.linear_upsampling_2d
         )
         self.deconv_layer3 = nn.Sequential(
             # nn.LayerNorm([256, 32, 64]),
-            nn.Conv2d(in_channels=256+256, out_channels=32, kernel_size=3, padding=1, bias=True),
-            # nn.BatchNorm2d(64),
+            nn.Conv2d(in_channels=256, out_channels=32, kernel_size=3, padding=1, bias=True),
+            nn.BatchNorm2d(32),
             nn.ReLU(inplace=True),
-            self.linear_upsampling_7d,
+            # self.linear_upsampling_1_75d,
         )
         # self.deconv_layer4 = nn.Sequential(
         #     nn.Conv2d(in_channels=64, out_channels=32, kernel_size=3, padding=1, bias=True),
         #     nn.ReLU(inplace=True),
         #     self.linear_upsampling
         # )
+        self.up_conv = nn.Sequential(
+            nn.ConvTranspose2d(in_channels=256, out_channels=128, kernel_size=2, stride=2, padding=2)
+            nn.BatchNorm2d(256),
+            nn.ReLU(inplace=True),
+            nn.ConvTranspose2d(in_channels=128, out_channels=128, kernel_size=2, stride=2, padding=2)
+            nn.BatchNorm2d(128),
+            nn.ReLU(inplace=True),
+        )
         self.readout = nn.Sequential(
             nn.Conv2d(in_channels=32, out_channels=32, kernel_size=3, padding=1, bias=True),
             nn.ReLU(inplace=True),
@@ -646,7 +690,6 @@ class SwinTransformerV2(nn.Module):
         return {"cpb_mlp", "logit_scale", 'relative_position_bias_table'}
 
     def forward_features(self, x):
-        # import pdb; pdb.set_trace()
         x = self.patch_embed(x)
         if self.ape:
             x = x + self.absolute_pos_embed
@@ -661,7 +704,11 @@ class SwinTransformerV2(nn.Module):
             out = x.transpose(1, 2).view(B, C, Ph, Pw)
             outs.append(out)
             
-
+        # import pdb; pdb.set_trace()  
+        # outs[-2] = self.upconv_3(outs[-2])
+        # outs[-3] = self.upconv_2(outs[-3])
+        # outs[-4] = self.upconv_1(outs[-4])
+        
         x = self.deconv_layer0(outs[-1])
         x = torch.cat([x, outs[-2]], dim=1)
         x = self.deconv_layer1(x)

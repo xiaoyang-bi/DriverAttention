@@ -50,8 +50,8 @@ class SceneDataset(Dataset):
         assert os.path.exists(root), f"path '{root}' does not exists."
         self.root = Path(root)
         phase = mode
-        # if mode.startswith('infer'):
-        #     phase = 'train'
+        if mode.startswith('infer'):
+            phase = 'train'
         scene_list_path = self.root/(phase + '.txt') if self.noise_type is None else  self.root/(phase + '_cor.txt')
         # scene_list_path = self.root/('train' + '.txt') 
         
@@ -141,7 +141,6 @@ class SceneDataset(Dataset):
         return mall
         
     def __getitem__(self, i):
-        # import pdb; pdb.set_trace()
         file, scene = self.file_scene_list[i]
         if self.noise_type:
             img_path = str(self.root / scene / self.noise_type / file)
@@ -153,14 +152,22 @@ class SceneDataset(Dataset):
             # import pdb; pdb.set_trace()
             p = []
             # if self.use_msk:
-            mall_path = self.root / scene / 'weighted_mask_wo_norm' / file
-            # # mall_out_path = mall_out_dir / file
+            mall_path = self.root / scene / 'weighted_mask_wo_norm' / (file.split('.')[0] + '.npy')
+            # mall_out_path = mall_out_dir / file
             if mall_path.exists():
-                mall = self.convert(mall_path)
+                # mall = self.convert(mall_path)
+                mall = torch.from_numpy(np.load(mall_path))
             else:
                 mall = self.get_weighted_prior(scene, file)
+            # import pdb; pdb.set_trace()
+            
+            # mall = self.get_weighted_prior(scene, file)
+            # mall_out_dir = self.root / scene / 'weighted_mask_wo_norm' 
             # mall_out_dir.mkdir(parents=True, exist_ok=True)
-            # mall_out_path = mall_out_dir / file
+            # mall_out_path = mall_out_dir / (file.split('.')[0] + '.npy')
+            # np.save(mall_out_path, mall.numpy())
+            
+            
             
             
             
@@ -287,6 +294,7 @@ class SceneDataset(Dataset):
 
 
     def __len__(self):
+        # return 1000
         return len(self.file_scene_list)
 
     @staticmethod

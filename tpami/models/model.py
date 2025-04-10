@@ -11,9 +11,10 @@ from models.nonLocal import NONLocalBlock2D
 from models.NonLocalCross import BiNonLocalBlock2D
 from models.models import ConvNextModel, ResNetModel, VGGModel, MobileNetV2, DenseModel
 from models.MobileViT import mobile_vit_small
-from models.swin_transfomer_v2 import SwinTransformerV2
+# from models.swin_transfomer_v2 import SwinTransformerV2
 import cv2
 from torch import Tensor
+from models.swinv2_regression import SwinV2Regression
 
 def build_swinv2_model(config):
     model = SwinTransformerV2(img_size=config.DATA.IMG_SIZE,
@@ -356,21 +357,21 @@ class Model(nn.Module):
             self.ub3 = UncertaintyBlock(1056, dim, self.n)
         elif backbone == 'swinv2b':
             # import pdb; pdb.set_trace()
-            from models.swinv2_config import get_config
-            config = get_config("models/swinv2_base_patch4_window8_256.yaml")
-            self.backbone = build_swinv2_model(config)
+            # from models.swinv2_config import get_config
+            # config = get_config("models/swinv2_base_patch4_window8_256.yaml")
+            # self.backbone = build_swinv2_model(config)
             
-            weights_dict = torch.load('models/swinv2_base_patch4_window8_256.pth', map_location='cpu')
-            weights_dict = weights_dict["model"] if "model" in weights_dict else weights_dict
-            # 删除有关分类类别的权重
-            for k in list(weights_dict.keys()):
-                if "classifier" in k:
-                    del weights_dict[k]
-            self.backbone.load_state_dict(weights_dict, strict=False)
-            
-            self.ub1 = UncertaintyBlock(256, dim, self.n)
-            self.ub2 = UncertaintyBlock(512, dim, self.n)
-            self.ub3 = UncertaintyBlock(1024, dim, self.n)
+            # weights_dict = torch.load('models/swinv2_base_patch4_window8_256.pth', map_location='cpu')
+            # weights_dict = weights_dict["model"] if "model" in weights_dict else weights_dict
+            # # 删除有关分类类别的权重
+            # for k in list(weights_dict.keys()):
+            #     if "classifier" in k:
+            #         del weights_dict[k]
+            # self.backbone.load_state_dict(weights_dict, strict=False)
+            self.backbone = SwinV2Regression()
+            self.ub1 = UncertaintyBlock(128, dim, self.n)
+            self.ub2 = UncertaintyBlock(256, dim, self.n)
+            self.ub3 = UncertaintyBlock(512, dim, self.n)
         else:
             raise NotImplementedError
         list_block = []
@@ -405,6 +406,9 @@ class Model(nn.Module):
             x = F.interpolate(x, size=(256, 256), mode='bilinear', align_corners=False)
         # import pdb; pdb.set_trace()
         y, results = self.backbone(x)
+        
+        if self.mode == 'swinv2b':
+            y = F.interpolate(y, size=(224, 224), mode='bilinear', align_corners=False)
         # self.heatmap = self.process_output(y)
         if p is None:
             return y
@@ -439,9 +443,15 @@ class Model(nn.Module):
             results[0] = self.downsample2x(results[0])
             results[2] = self.upsample4x(results[2])
         elif self.mode == 'swinv2b':
-            results[0] = self.upsample1_75x(results[0])
-            results[1] = self.upsample3_5x(results[1])
-            results[3] = self.upsample7x(results[3])
+            # import pdb; pdb.set_trace()
+            # results[0] = self.upsample1_75x(results[0])
+            # results[1] = self.upsample3_5x(results[1])
+            # results[3] = self.upsample7x(results[3])
+            
+            results[0] = F.interpolate(results[0], size=(56, 56), mode='bilinear', align_corners=False)
+            results[1] = F.interpolate(results[1], size=(56, 56), mode='bilinear', align_corners=False)
+            results[2] = F.interpolate(results[2], size=(56, 56), mode='bilinear', align_corners=False)
+            
             
 
         # # import pdb; pdb.set_trace() 
@@ -452,7 +462,7 @@ class Model(nn.Module):
         else:
             e = self.ub1(results[0], e)
             e = self.ub2(results[1], e)
-            e = self.ub3(results[3], e)            
+            e = self.ub3(results[2], e)            
 
         e = [self.upsample4x(ps) for ps in e]
         for index, m in enumerate(self.conv):

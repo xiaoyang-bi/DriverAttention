@@ -275,7 +275,7 @@ def main(args):
     print('prior: {}'.format(args.prior))
     print('use pseudo labels: {}'.format(args.p_dic))
     val_data_loader = data.DataLoader(val_dataset,
-                                      batch_size=1,  # must be 1
+                                      batch_size=args.batch_size,  # must be 1
                                       num_workers=num_workers,
                                       pin_memory=True)
     # val_snow_data_loader = data.DataLoader(val_noise_dataset_snow,

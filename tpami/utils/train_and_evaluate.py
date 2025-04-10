@@ -147,9 +147,9 @@ def evaluate(args, model, data_loader, device):
     
 def train_one_epoch(args, model, optimizer, data_loader, val_data_loader, val_snow_data_loader,  device, epoch, lr_scheduler, print_freq=10, scaler=None):
     if not hasattr(train_one_epoch, "iter_counter"):
-        train_one_epoch.iter_counter = 0  # 初始化计数器
+        train_one_epoch.iter_counter = 0  
     if not hasattr(train_one_epoch, "current_cc"):
-        train_one_epoch.current_cc = 0.  # 初始化计数器
+        train_one_epoch.current_cc = 0.  
 
     model.train()
     metric_logger = utils.MetricLogger(delimiter="  ")
@@ -192,6 +192,11 @@ def train_one_epoch(args, model, optimizer, data_loader, val_data_loader, val_sn
                 kld_metric, cc_metric = evaluate_batch(args, model, val_data_loader, device=device)
                 kld_info, cc_info = kld_metric.compute(), cc_metric.compute()
                 print(f"[epoch: {epoch}] val_kld: {kld_info:.3f} val_cc: {cc_info:.3f}")
+                
+                if val_snow_data_loader is not None:
+                    kld_snow_metric, cc_snow_metric = evaluate_batch(args, model, val_snow_data_loader, device=device)
+                    kld_snow_info, cc_snow_info = kld_snow_metric.compute(), cc_snow_metric.compute()
+                    print(f"[epoch: {epoch}] val_kld: {kld_snow_info:.3f} val_cc: {cc_snow_info:.3f}")
                 # print(f"[epoch: {epoch}] val_kld: {kld_snow_info:.3f} val_cc: {cc_snow_info:.3f}")
                 if(args.use_wandb):
                     wandb.log({'lr': lr, 
@@ -206,6 +211,7 @@ def train_one_epoch(args, model, optimizer, data_loader, val_data_loader, val_sn
                             })
 
                     # 当前最佳
+
                 if train_one_epoch.current_cc  <=cc_info:
                     torch.save(save_file, "save_weights/model_best_{}_{}_{}.pth".format(args.name, "{:.5f}".format(cc_info), "{:.5f}".format(kld_info) ) )
                     train_one_epoch.current_cc  = cc_info
@@ -225,6 +231,7 @@ def train_trival_one_epoch(args, model, optimizer, data_loader, val_data_loader,
     metric_logger = utils.MetricLogger(delimiter="  ")
     metric_logger.add_meter('lr', utils.SmoothedValue(window_size=1, fmt='{value:.6f}'))
     header = 'Epoch: [{}]'.format(epoch)
+    # import pdb; pdb.set_trace()
     if args.model.find('uncertainty') != -1:
         # import pdb; pdb.set_trace()
         for image, p in metric_logger.log_every(data_loader, print_freq, header):
@@ -259,7 +266,7 @@ def train_trival_one_epoch(args, model, optimizer, data_loader, val_data_loader,
                 "epoch": epoch,
                 "args": args}
 
-        kld_metric, cc_metric = evaluate(args, model, val_data_loader, device=device)
+        kld_metric, cc_metric = evaluate_batch(args, model, val_data_loader, device=device)
         kld_info, cc_info = kld_metric.compute(), cc_metric.compute()
         print(f"[epoch: {epoch}] val_kld: {kld_info:.3f} val_cc: {cc_info:.3f}")
         

@@ -112,10 +112,10 @@ def run_infer_mixup(args, model, data_loader, gaze_average, device, topK=8):
     gaze_average = gaze_average.to(device)
     metric_logger = utils.MetricLogger(delimiter="  ")
     header = 'Test:'
-    os.makedirs(str(Path(args.data_path)/'mix_data'), exist_ok=True)
-    os.makedirs(str(Path(args.data_path)/'mix_data'/'0'), exist_ok=True)
-    os.makedirs(str(Path(args.data_path)/'mix_data'/'1'), exist_ok=True)
-    os.makedirs(str(Path(args.data_path)/'mix_data'/'camera_224_224'), exist_ok=True)
+    os.makedirs(str(Path(args.data_path)/args.mix_dir), exist_ok=True)
+    os.makedirs(str(Path(args.data_path)/args.mix_dir/'0'), exist_ok=True)
+    os.makedirs(str(Path(args.data_path)/args.mix_dir/'1'), exist_ok=True)
+    os.makedirs(str(Path(args.data_path)/args.mix_dir/'camera_224_224'), exist_ok=True)
 
     
 
@@ -152,9 +152,9 @@ def run_infer_mixup(args, model, data_loader, gaze_average, device, topK=8):
                     img_out = tensor2img(mix_imgs)
                     for p_idx, mix_p in enumerate(mix_ps):
                         p_out = (mix_p / mix_p.max()).permute(1, 2, 0).cpu().detach().numpy() * 255
-                        cv2.imwrite( str(Path(args.data_path)/'mix_data'/'{}'.format(p_idx)/"{}.jpg".format(count)), p_out) 
+                        cv2.imwrite( str(Path(args.data_path)/args.mix_dir/'{}'.format(p_idx)/"{}.jpg".format(count)), p_out) 
 
-                    cv2.imwrite( str(Path(args.data_path)/'mix_data'/'camera_224_224'/"{}.jpg".format(count)), img_out)
+                    cv2.imwrite( str(Path(args.data_path)/args.mix_dir/'camera_224_224'/"{}.jpg".format(count)), img_out)
                     count += 1
 
 
@@ -190,6 +190,9 @@ def parse_args():
     parser.add_argument('--p_dic', default=['ml_p', 'unisal_p'], nargs='+', help='A list of pseudoss')
     
     
+    #==================for aug strategy===============================
+    parser.add_argument('--mix_dir', default='mix_data', help="dir to save the mixupdata")
+    parser.add_argument('--topK', default=8, type=int)
     args = parser.parse_args()
 
     return args
@@ -244,7 +247,11 @@ def main(args):
             "batch_size": args.batch_size,
             "alpha": args.alpha
         }
-)
+    )
+        
+    print('infer mixup data in: {}'.format(args.mix_dir))
+    print('top K: {}'.format(args.topK))
+    
 
 
     device = torch.device(args.device if torch.cuda.is_available() else "cpu")
@@ -260,11 +267,11 @@ def main(args):
     print('length of val dataset: %d' % len(val_dataset))
     print('length of train_batch_size: %d' % batch_size )
     val_data_loader = data.DataLoader(val_dataset,
-                                      batch_size=1,  # must be 1
+                                      batch_size=args.batch_size, 
                                       num_workers=num_workers,
                                       pin_memory=True)
     val_snow_data_loader = data.DataLoader(val_noise_dataset_snow,
-                                    batch_size=1,  # must be 1
+                                    batch_size=args.batch_size,  
                                     num_workers=num_workers,
                                     pin_memory=True)
 
@@ -341,7 +348,7 @@ def main(args):
         '''
         init mixup and infer the distribution
         '''#mixup
-        
+        print('infering the dataset to get distirbution')
         init_infer_dataset= SceneDataset(args.data_path, mode='infer')
         infer_dataloader = data.DataLoader(init_infer_dataset,
                             batch_size=args.batch_size,  
@@ -355,6 +362,7 @@ def main(args):
         '''
         mix dataset infer and get data for next time
         '''
+        print('generating mixup data')
         init_infer_dataset = SceneDataset(args.data_path, mode='infer_mix', p_dic = args.p_dic,  alpha=args.alpha)
         #SHUFFLE ?
         init_infer_dataloader = data.DataLoader(init_infer_dataset,
@@ -362,9 +370,10 @@ def main(args):
                                     num_workers=num_workers,
                                     shuffle=False,
                                     pin_memory=True)
-        run_infer_mixup(args, model, init_infer_dataloader, gaze_average, device='cuda') 
+        run_infer_mixup(args, model, init_infer_dataloader, gaze_average, device='cuda', topK = args.topK) 
         #infer
-        mix_infer_dataset= MixDataset(args.data_path, mode='infer')
+        print('infering the mixup data')
+        mix_infer_dataset= MixDataset(args.data_path, mode='infer', mix_dir=args.mix_dir)
         mix_infer_dataloader = data.DataLoader(mix_infer_dataset,
                             batch_size=args.batch_size,  
                             num_workers=num_workers,
@@ -372,7 +381,8 @@ def main(args):
         run_infer(args, model, mix_infer_dataloader, device='cuda') 
 
         #train set
-        mix_train_dataset= MixDataset(args.data_path, mode='train')
+        print('select the mixup data')
+        mix_train_dataset= MixDataset(args.data_path, mode='train', mix_dir=args.mix_dir)
         kl_db = mix_train_dataset.get_data_by_kl(kl_db, gaze_average)
         write_csv(args.name + 'aug', epoch, kl_db)
 

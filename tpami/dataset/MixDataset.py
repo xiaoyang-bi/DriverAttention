@@ -19,7 +19,8 @@ class MixDataset(Dataset):
                   gaze_subdir = 'gaze',
                   infer_gaze_subdir = 'infer_gaze',
                   p_dic = ['0', '1'],
-                  sample_num = -1,):
+                  sample_num = -1,
+                  mix_dir='mixup_data'):
         '''
         mode should include:
         train, val, test, infer, run_example
@@ -34,7 +35,7 @@ class MixDataset(Dataset):
         self.out_folder = infer_gaze_subdir
         assert os.path.exists(root), f"path '{root}' does not exists."
         self.root = Path(root)
-        self.scenes = [self.root/'mix_data']
+        self.scenes = [self.root/mix_dir]
         os.makedirs(self.scenes[0], exist_ok=True)
         if os.path.exists(str(self.scenes[0]/(self.cam_subdir + '_224_224'))):
                 self.cam_subdir = self.cam_subdir + "_224_224"
@@ -60,7 +61,7 @@ class MixDataset(Dataset):
         # self.file_scene_list = self.file_scene_list[:1000]
 
     def clear(self):
-        mix_data_dir = (self.root/'mix_data') #rm all
+        mix_data_dir = (self.root/args.mix_dir) #rm all
         if mix_data_dir.exists() and mix_data_dir.is_dir():
             shutil.rmtree(mix_data_dir)
             print(f"'{mix_data_dir}' directory has been removed.")
@@ -98,6 +99,7 @@ class MixDataset(Dataset):
         the function will accept kl_distribution and then try to balance and return the modified kl_db
         only works for aug dataset
         '''
+        # import pdb; pdb.set_trace()
         max_value = None
         key_max = None
         
