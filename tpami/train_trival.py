@@ -192,7 +192,12 @@ def parse_args():
                     help="Use wandb to record")
     parser.add_argument('--p_dic', default=['ml_p', 'unisal_p'], nargs='+', help='A list of pseudoss')
     parser.add_argument('--prior', nargs='+', help='A list of pseudoss')
-    
+
+
+    #===================for ablation study=============================
+    parser.add_argument('--use_prior', default=1, type=int)
+    parser.add_argument('--use_unc', default=1, type=int)
+    parser.add_argument('--use_nonlocal', default=1, type=int)
     
     args = parser.parse_args()
 
@@ -248,8 +253,12 @@ def main(args):
             "batch_size": args.batch_size,
             "alpha": args.alpha
         }
-)
+    )
 
+    print('use prior :{}'.format(args.use_prior))
+    print('use unc: {}'.format(args.use_unc))
+    print('use nonlocal: {}'.format(args.use_nonlocal))
+    
 
     device = torch.device(args.device if torch.cuda.is_available() else "cpu")
     batch_size = args.batch_size
@@ -260,7 +269,7 @@ def main(args):
     # val_dataset = SceneDataset('/data/bxy/MultiModelAD/data/bd_test/', mode='test')
     val_dataset = DrDataset(args.val_data_path, mode='test', cam_subdir='camera', gaze_subdir='gaze')
     # val_noise_dataset_snow = SceneDataset(args.data_path, mode='val_snow', p_dic=args.p_dic,  noise_type='snow')
-    train_dataset = SceneDataset(args.data_path, mode='train', p_dic = args.p_dic,  alpha=args.alpha, prior=args.prior)
+    train_dataset = SceneDataset(args.data_path, mode='train', p_dic = args.p_dic,  alpha=args.alpha, use_prior=args.use_prior)
     num_workers = min([os.cpu_count(), batch_size if batch_size > 1 else 0, 8])
     train_data_loader = data.DataLoader(train_dataset,
                                 batch_size=batch_size,
@@ -288,7 +297,7 @@ def main(args):
     # import pdb; pdb.set_trace()
     if args.model == 'uncertainty-m':
         from models.model import Model
-        model = Model(args.backbone, input_dim=args.input_channel, n=len(args.p_dic))
+        model = Model(args.backbone, input_dim=args.input_channel, n=len(args.p_dic), use_unc=args.use_unc, use_nonlocal=args.use_nonlocal)
     else: raise NotImplementedError
     model = model.to(device)
 
