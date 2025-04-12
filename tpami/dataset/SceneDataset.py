@@ -58,17 +58,17 @@ class SceneDataset(Dataset):
         
         self.scenes = [self.root/folder.strip()
                     for folder in open(scene_list_path) if not folder.strip().startswith("#")]
-        # if os.path.exists(str(self.scenes[0]/(self.cam_subdir + '_224_224'))):
-        #         self.cam_subdir = self.cam_subdir + "_224_224"
-        #         print("use resized")
-        # if os.path.exists(str(self.scenes[0]/(self.gaze_subdir + '_224_224'))):
-        #         self.gaze_subdir = self.gaze_subdir + "_224_224"
-        #         print("use resized")      
-        # if self.p_dic is not None:
-        #     for p in self.p_dic:
-        #         if os.path.exists(str(self.scenes[0]/(p + '_224_224'))):
-        #                 p += "_224_224"
-        #                 print("use resized")  
+        if os.path.exists(str(self.scenes[0]/(self.cam_subdir + '_224_224'))):
+                self.cam_subdir = self.cam_subdir + "_224_224"
+                print("use resized")
+        if os.path.exists(str(self.scenes[0]/(self.gaze_subdir + '_224_224'))):
+                self.gaze_subdir = self.gaze_subdir + "_224_224"
+                print("use resized")      
+        if self.p_dic is not None:
+            for p in self.p_dic:
+                if os.path.exists(str(self.scenes[0]/(p + '_224_224'))):
+                        p += "_224_224"
+                        print("use resized")  
 
         if self.noise_type is  None:
             for scene in self.scenes:
