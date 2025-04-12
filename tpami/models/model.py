@@ -263,10 +263,12 @@ class UncertaintyBlock(nn.Module):
         # self.seb = BasicBlock(p_input * (n + 1), p_input)
         self.rs_compress = ResidualBlock(p_input*n, p_input, 1)
         list_block = []
-        for i in range(n):
-            list_block.append(ResidualBlock(p_input * 3, p_input, 1))
-        # for i in range(n):
-        #     list_block.append(ResidualBlock(p_input * 2, p_input, 1))
+        if self.use_nonlocal:
+            for i in range(n):
+                list_block.append(ResidualBlock(p_input * 3, p_input, 1))
+        else:
+            for i in range(n):
+                list_block.append(ResidualBlock(p_input * (n + 2), p_input, 1))
         self.rs4 = nn.ModuleList(list_block)
 
     def forward(self, x, p):
@@ -276,12 +278,18 @@ class UncertaintyBlock(nn.Module):
         
         # bi-non-local part
         # import pdb; pdb.set_trace()
-        compress_p = self.rs_compress(torch.cat(p, dim=1))
-        if self.use_nonlocal:
-            x, compress_p = self.bi_nlb(x, compress_p) #
-        p = [torch.concat([ps, compress_p, x], dim=1) for ps in p]
-        for index, m in enumerate(self.rs4):
-            p[index] = m(p[index])
+        if len(p) > 1:
+            if self.use_nonlocal:
+                compress_p = self.rs_compress(torch.cat(p, dim=1))
+                x, compress_p = self.bi_nlb(x, compress_p) #
+                p = [torch.concat([ps, compress_p, x], dim=1) for ps in p]
+            else:
+                # p = [torch.concat([ps, x], dim=1) for ps in p]
+                c = x
+                c = torch.concat([c, *p], dim=1)
+                p = [torch.concat([ps, c], dim=1) for ps in p]
+            for index, m in enumerate(self.rs4):
+                p[index] = m(p[index])
         # else:
         # # c = x
         #     c = torch.concat([c, *p], dim=1)

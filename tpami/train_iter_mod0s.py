@@ -39,6 +39,7 @@ def run_infer(args, model, data_loader, device):
             for i in range(images.shape[0]):
                 output = outputs[i]
                 out = (output / output.max()).permute(1, 2, 0).cpu().detach().numpy() * 255
+                out = out.astype(np.uint8)
                 cv2.imwrite(str(out_path[i]), out)
                 count += 1
 
@@ -152,6 +153,7 @@ def run_infer_mixup(args, model, data_loader, gaze_average, device, topK=8):
                     img_out = tensor2img(mix_imgs)
                     for p_idx, mix_p in enumerate(mix_ps):
                         p_out = (mix_p / mix_p.max()).permute(1, 2, 0).cpu().detach().numpy() * 255
+                        p_out = p_out.astype(np.uint8)
                         cv2.imwrite( str(Path(args.data_path)/args.mix_dir/'{}'.format(p_idx)/"{}.jpg".format(count)), p_out) 
 
                     cv2.imwrite( str(Path(args.data_path)/args.mix_dir/'camera_224_224'/"{}.jpg".format(count)), img_out)
@@ -359,8 +361,10 @@ def main(args):
         '''
         init mixup and infer the distribution
         '''#mixup
+        # import pdb; pdb.set_trace()
         print('infering the dataset to get distirbution')
-        init_infer_dataset= SceneDataset(args.data_path, mode='infer', use_prior=args.use_prior)
+        init_infer_dataset= SceneDataset(args.data_path, mode='infer', use_prior=args.use_prior, 
+                                         out_folder=args.mix_dir, infer_gaze_subdir=mix_dir)
         infer_dataloader = data.DataLoader(init_infer_dataset,
                             batch_size=args.batch_size,  
                             num_workers=num_workers,
@@ -384,6 +388,7 @@ def main(args):
         run_infer_mixup(args, model, init_infer_dataloader, gaze_average, device='cuda', topK = args.topK) 
         #infer
         print('infering the mixup data')
+        # import pdb; pdb.set_trace()
         mix_infer_dataset= MixDataset(args.data_path, mode='infer', mix_dir=args.mix_dir)
         mix_infer_dataloader = data.DataLoader(mix_infer_dataset,
                             batch_size=args.batch_size,  

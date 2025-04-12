@@ -133,6 +133,7 @@ class MixDataset(Dataset):
         return kl_db
 
     def __len__(self):
+        # return 100
         return len(self.file_scene_list)
 
     @staticmethod
