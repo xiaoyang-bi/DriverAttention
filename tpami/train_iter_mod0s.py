@@ -288,6 +288,11 @@ def main(args):
                                     num_workers=num_workers,
                                     pin_memory=True)
 
+    val_gau_noise_dataset_snow = SceneDataset(args.data_path, mode='val_snow', p_dic=args.p_dic,  noise_type='gaussian_noise', use_prior=args.use_prior)
+    val_gau_data_loader = data.DataLoader(val_gau_noise_dataset_snow,
+                                    batch_size=args.batch_size,  
+                                    num_workers=num_workers,
+                                    pin_memory=True)
     print(len(val_data_loader))
 
     
@@ -341,7 +346,7 @@ def main(args):
             # init_train_dataset.set_gaze_average(gaze_average)
             
         print('length of  train_dataset: %d' % len(train_dataset))
-        loss, lr = train_one_epoch(args, model, optimizer, train_data_loader, val_data_loader, val_snow_data_loader, device, epoch, lr_scheduler,
+        loss, lr = train_one_epoch(args, model, optimizer, train_data_loader, val_data_loader, val_snow_data_loader, val_gau_data_loader, device, epoch, lr_scheduler,
                                         print_freq=args.print_freq, scaler=None)
         lr = optimizer.param_groups[0]["lr"]
         lr_scheduler.step()
@@ -364,7 +369,7 @@ def main(args):
         # import pdb; pdb.set_trace()
         print('infering the dataset to get distirbution')
         init_infer_dataset= SceneDataset(args.data_path, mode='infer', use_prior=args.use_prior, 
-                                         out_folder=args.mix_dir, infer_gaze_subdir=mix_dir)
+                                         out_folder=args.mix_dir, infer_gaze_subdir=args.mix_dir)
         infer_dataloader = data.DataLoader(init_infer_dataset,
                             batch_size=args.batch_size,  
                             num_workers=num_workers,

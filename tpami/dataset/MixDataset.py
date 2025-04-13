@@ -134,6 +134,7 @@ class MixDataset(Dataset):
 
     def __len__(self):
         # return 100
+        # return min(100, len(self.file_scene_list))
         return len(self.file_scene_list)
 
     @staticmethod

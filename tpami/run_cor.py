@@ -33,8 +33,10 @@ def parse_args():
 def main(args):
 
     results = {}
-    cors = [None, 'snow', 'fog', 'gaussian_noise', 'motion_blur', 'impulse_noise', 'jpeg_compression']
+    # cors = [None, 'snow', 'fog', 'gaussian_noise', 'motion_blur', 'impulse_noise', 'jpeg_compression']
     # cors = ['motion_blur']
+    cors = ['gaussian_noise']
+    
 
     for cor in cors:
 

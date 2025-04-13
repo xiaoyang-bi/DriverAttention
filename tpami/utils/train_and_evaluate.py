@@ -145,7 +145,7 @@ def evaluate(args, model, data_loader, device):
         return kld_metric, cc_metric
     
     
-def train_one_epoch(args, model, optimizer, data_loader, val_data_loader, val_snow_data_loader,  device, epoch, lr_scheduler, print_freq=10, scaler=None):
+def train_one_epoch(args, model, optimizer, data_loader, val_data_loader, val_snow_data_loader,  val_gau_data_loader, device, epoch, lr_scheduler, print_freq=10, scaler=None):
     if not hasattr(train_one_epoch, "iter_counter"):
         train_one_epoch.iter_counter = 0  
     if not hasattr(train_one_epoch, "current_cc"):
@@ -197,18 +197,23 @@ def train_one_epoch(args, model, optimizer, data_loader, val_data_loader, val_sn
                     kld_snow_metric, cc_snow_metric = evaluate_batch(args, model, val_snow_data_loader, device=device)
                     kld_snow_info, cc_snow_info = kld_snow_metric.compute(), cc_snow_metric.compute()
                     print(f"[epoch: {epoch}] val_kld: {kld_snow_info:.3f} val_cc: {cc_snow_info:.3f}")
+                    
+                if val_gau_data_loader is not None:
+                    kld_gau_metric, cc_gau_metric = evaluate_batch(args, model, val_gau_data_loader, device=device)
+                    kld_gau_info, cc_gau_info = kld_gau_metric.compute(), cc_gau_metric.compute()
+                    print(f"[epoch: {epoch}] val_kld: {kld_gau_info:.3f} val_cc: {cc_gau_info:.3f}")
                 # print(f"[epoch: {epoch}] val_kld: {kld_snow_info:.3f} val_cc: {cc_snow_info:.3f}")
-                if(args.use_wandb):
-                    wandb.log({'lr': lr, 
-                            'loss': loss, 
+                # if(args.use_wandb):
+                #     wandb.log({'lr': lr, 
+                #             'loss': loss, 
 
-                            'cc': cc_info, 
-                            'kld': kld_info,
+                #             'cc': cc_info, 
+                #             'kld': kld_info,
 
-                            # 'cc_snow': cc_snow_info,
-                            # 'kld_snow': kld_snow_info,
-                            'len dataset': len(data_loader)*args.batch_size
-                            })
+                #             # 'cc_snow': cc_snow_info,
+                #             # 'kld_snow': kld_snow_info,
+                #             'len dataset': len(data_loader)*args.batch_size
+                #             })
 
                     # 当前最佳
 
