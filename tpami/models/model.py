@@ -418,12 +418,14 @@ class Model(nn.Module):
             x = F.interpolate(x, size=(256, 256), mode='bilinear', align_corners=False)
         # import pdb; pdb.set_trace()
         y, results = self.backbone(x)
+        last_feat = F.adaptive_avg_pool2d(results[-1].clone(), (1, 1))
+        last_feat = last_feat.view(last_feat.size(0), -1)
         
         if self.mode == 'swinv2b':
             y = F.interpolate(y, size=(224, 224), mode='bilinear', align_corners=False)
         # self.heatmap = self.process_output(y)
         if p is None:
-            return y
+            return y, last_feat
         
         if not self.use_unc:
             e = [torch.zeros(p_.shape, dtype=p_.dtype, device=p_.device) for p_ in p]
@@ -488,7 +490,7 @@ class Model(nn.Module):
         # e = [torch.zeros(p_.shape, dtype=p_.dtype, device=p_.device) for p_ in p]
 
 
-        return y, e
+        return y, e, last_feat
 
     @staticmethod
     def process_output(outputs):

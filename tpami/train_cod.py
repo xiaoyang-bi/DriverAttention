@@ -21,6 +21,7 @@ import torchvision.transforms as transforms
 import numpy as np
 from PIL import Image
 from dataset.DrDataset import DrDataset
+import torch.nn as nn
 
 torch.manual_seed(3407)
     
@@ -174,9 +175,10 @@ def evaluate_batch(args, model, data_loader, device):
         for images, targets in metric_logger.log_every(data_loader, 100, header):
             images, targets = images.to(device), targets.to(device)
             if args.model.find('uncertainty') != -1:
-                output = model(images)
-            else:
                 output, _ = model(images)
+            else:
+                raise NotImplementedError   
+            #     output, _ = model(images)
             batch_size = images.size(0)
             for i in range(batch_size):
                 kld_metric.update(output[i].unsqueeze(0), targets[i].unsqueeze(0))
@@ -227,6 +229,22 @@ def parse_args():
     parser.add_argument('--use_unc', default=1, type=int)
     parser.add_argument('--use_nonlocal', default=1, type=int)
     
+    
+    #===================for cod=========================================
+    parser.add_argument('--treshold', type=float, default=0.999,
+                        help='treshold for the pseudo inverse')
+    parser.add_argument('--tradeoff_angle', type=float, default=0.5,
+                            help='tradeoff for angle alignment')
+    parser.add_argument('--tradeoff_scale', type=float, default=0.003,
+                            help='tradeoff for scale alignment')
+    parser.add_argument('--tradeoff_kgw', type=float, default=1e-4, help='tradeoff for kgw dist')
+    parser.add_argument('--tradeoff_cod', type=float, default=1e-3, help='tradeoff for cod dist')
+    parser.add_argument("--save-folder", default="./save_weights", help="BDDA root")
+    parser.add_argument("--cor", default="snow", help="cor type for domain adaptation")
+    
+    
+
+        
     args = parser.parse_args()
 
     return args
@@ -302,7 +320,7 @@ def criterion(inputs, p, e, type='bce'):
 
 
 
-def DARE_GRAM_LOSS(H1, H2):    
+def DARE_GRAM_LOSS(H1, H2, device, args):    
     b,p = H1.shape
 
     A = torch.cat((torch.ones(b,1).to(device), H1), 1)
@@ -340,6 +358,29 @@ def DARE_GRAM_LOSS(H1, H2):
     cos = torch.dist(torch.ones((p+1)).to(device),(cos_sim(A,B)),p=1)/(p+1)
     return args.tradeoff_angle*(cos) + args.tradeoff_scale*torch.dist((L_A[:k]),(L_B[:k]))/k
 
+
+def mul_guassian_kernel(source, target, kernel_mul=2.0, kernel_num=5): # 混合5个guassian kernel
+    batch_size = int(source.size()[0])
+    n_samples = int(source.size()[0])+int(target.size()[0])
+    total = torch.cat([source, target], dim=0)
+
+    total0 = total.unsqueeze(0).expand(int(total.size(0)), int(total.size(0)), int(total.size(1)))
+    total1 = total.unsqueeze(1).expand(int(total.size(0)), int(total.size(0)), int(total.size(1)))
+    L2_distance = ((total0-total1)**2).sum(2) 
+
+    bandwidth = torch.sum(L2_distance.data) / (n_samples**2-n_samples)
+    bandwidth /= kernel_mul ** (kernel_num // 2)
+    bandwidth_list = [bandwidth * (kernel_mul**i) for i in range(kernel_num)]
+    kernel_val = [torch.exp(-L2_distance / bandwidth_temp) for bandwidth_temp in bandwidth_list]
+
+    kernels = sum(kernel_val)
+
+    XX = kernels[:batch_size, :batch_size]
+    YY = kernels[batch_size:, batch_size:]
+    XY = kernels[:batch_size, batch_size:]
+    YX = kernels[batch_size:, :batch_size]
+
+    return XX, YY, XY, YX
 
 def COD_Metric(fea_s, fea_t, prob_s, prob_t, device, epsilon=5e-2):
     num_sam_s = fea_s.shape[0]
@@ -411,9 +452,9 @@ def COD_Metric(fea_s, fea_t, prob_s, prob_t, device, epsilon=5e-2):
 
     return CMMD_dist + CKB_dist
 
-def main(args, cor):
+def main(args):
     # if(args.alpha<=0): raise NotImplementedError
-
+    cor = args.cor
     print('use prior :{}'.format(args.use_prior))
     print('use unc: {}'.format(args.use_unc))
     print('use nonlocal: {}'.format(args.use_nonlocal))
@@ -426,7 +467,7 @@ def main(args, cor):
     # val_dataset = SceneDataset(args.data_path, mode='val')
     # val_dataset = SceneDataset('/data/bxy/MultiModelAD/data/bd_test/', mode='test')
     # val_dataset = DrDataset(args.val_data_path, mode='test', cam_subdir='camera', gaze_subdir='gaze')
-    # train_dataset = SceneDataset(args.data_path, mode='train', p_dic = args.p_dic,  alpha=args.alpha, use_prior=args.use_prior)
+    train_dataset = SceneDataset(args.data_path, mode='train', p_dic = args.p_dic,  alpha=args.alpha, use_prior=args.use_prior)
     num_workers = min([os.cpu_count(), batch_size if batch_size > 1 else 0, 8])
     train_data_loader = data.DataLoader(train_dataset,
                                 batch_size=batch_size,
@@ -435,18 +476,17 @@ def main(args, cor):
                                 pin_memory=True)
     
     print('data loader workers number: %d' % num_workers)
-    print('length of val dataset: %d' % len(val_dataset))
     print('length of train_batch_size: %d' % batch_size )
-    print('length of  train_dataset: %d' % len(train_dataset))
     print('prior: {}'.format(args.prior))
     print('use pseudo labels: {}'.format(args.p_dic))
+    # print()
     # val_data_loader = data.DataLoader(val_dataset,
     #                                   batch_size=args.batch_size,  # must be 1
     #                                   num_workers=num_workers,
     #                                   pin_memory=True)
     # # val_snow_data_loader = data.DataLoader(val_noise_dataset_snow
 
-    print(len(val_data_loader))
+    # print(len(val_data_loader))
     
     # import pdb; pdb.set_trace()
     if args.model == 'uncertainty-m':
@@ -464,15 +504,17 @@ def main(args, cor):
     
     
     #==========================set the dataloader====================================
-    
+    # import pdb; pdb.set_trace()
     dataset = {
-        "source_train": SceneDataset(args.data_path, mode='train', cam_subdir='camera',  p_dic = args.p_dic, use_prior=args.use_prior)
-        "target_train": SceneDataset(args.data_path, mode='test', cam_subdir=cor, p_dic = args.p_dic, use_prior=args.use_prior)
-        "target_test": SceneDataset(args.data_path, mode='test', cam_subdir=cor, p_dic = args.p_dic, use_prior=args.use_prior)
+        "source_train": SceneDataset(args.data_path, mode='train', cam_subdir='camera',  p_dic = args.p_dic, use_prior=args.use_prior),
+        "target_train": SceneDataset(args.data_path, mode='test', cam_subdir=cor, p_dic = args.p_dic, use_prior=args.use_prior),
+        "target_test": SceneDataset(args.data_path, mode='test', cam_subdir=cor, p_dic = args.p_dic, use_prior=args.use_prior),
+        "source_test": SceneDataset(args.data_path, mode='val', p_dic = args.p_dic, use_prior=args.use_prior)
+        
     }
-    
-    dataset_loader = {x: torch.utils.data.DataLoader(dataset[x], batch_size=batch_size[x],shuffle=True, num_workers=4)
-            for x in ['source_train', 'target_train','target_test']}
+    print("target train dataset len: {}".format(len(dataset["target_train"])))
+    dataset_loader = {x: torch.utils.data.DataLoader(dataset[x], batch_size=args.batch_size, shuffle=True, num_workers=4)
+            for x in ['source_train', 'target_train','target_test', 'source_test']}
     
     len_source = len(dataset_loader["source_train"]) - 1
     len_target = len(dataset_loader["target_train"]) - 1
@@ -484,10 +526,13 @@ def main(args, cor):
     start_time = time.time()
     model = model.to(device)
     
-    num_iter = len_source * args.epochs
-    warmup_num = num_iter / 3
+    num_iter = int (len_source * args.epochs)
+    warmup_num = int(num_iter / 3)
     test_interval = len_source
+    interval_start_t = time.time()
+    cc_max = 0.
     
+    print('total iter: {}, warmup iter: {}, test interval: {}'.format(num_iter, warmup_num, test_interval))
     for iter_num in range(1, num_iter + 1):
         optimizer.zero_grad()
         model.train()
@@ -510,8 +555,11 @@ def main(args, cor):
         labels_source = labels_source.float().to(device)    
         
         # here to get the last feats
-        feat_s, pred_s, e = model(inputs_source, labels_source_list)
-        feat_t, pred_t = model(inputs_target)
+        # import pdb; pdb.set_trace()
+        pred_s, e, feat_s = model(inputs_source, labels_source_list)
+        pred_t, feat_t = model(inputs_target)
+        # feat_s = feat_s[-1]
+        # feat_t = feat_t[-1]
         
         # supp_source = (1e-3) * torch.rand(labels_source.shape[0],4).to(device)
         # supp_target = (1e-3) * torch.rand(labels_target.shape[0],4).to(device)
@@ -524,9 +572,10 @@ def main(args, cor):
         task_loss = criterion(pred_s, labels_source_list, e, args.loss_func)
 
         # if args.marg == 'daregram':
-        marginal_loss = DARE_GRAM_LOSS(feat_s, feat_t)
+        # import pdb; pdb.set_trace()
+        marginal_loss = DARE_GRAM_LOSS( feat_s, feat_t, device, args)
             
-        cod_dist = COD_Metric(feat_s, feat_t, y_source, y_target.detach(), device) 
+        cod_dist = COD_Metric(feat_s, feat_t, y_source.view(y_source.size(0), -1), y_target.view(y_target.size(0), -1).detach(), device) 
         conditional_loss = args.tradeoff_cod * cod_dist
         
         
@@ -544,7 +593,7 @@ def main(args, cor):
         
         
         ################################ record ###################################
-        train_task_loss += regression_loss.detach().item()
+        train_task_loss += task_loss.detach().item()
         train_distribution_matching_loss += distribution_matching_loss.detach().item()
         train_total_loss += total_loss.detach().item()
 
@@ -557,34 +606,42 @@ def main(args, cor):
 
             model.eval()
             
-            kld_metric, cc_metric = evaluate_batch(args, model, test_loader, device)
+            
+            source_test_loader = dataset_loader['source_test']
+            target_test_loader = dataset_loader['target_test']
+            kld_metric, cc_metric = evaluate_batch(args, model, source_test_loader, device)
             kld_info, cc_info = kld_metric.compute(), cc_metric.compute()
-            kld_snow_metric, cc_snow_metric = evaluate_batch(args, model, snow_testloader, device)
+            kld_snow_metric, cc_snow_metric = evaluate_batch(args, model, target_test_loader, device)
             kld_snow_info, cc_snow_info = kld_snow_metric.compute(), cc_snow_metric.compute()
             
-            print(f"[epoch: {iter_num}] val_kld: {kld_info:.3f} val_cc: {cc_info:.3f}")
-            print(f"[epoch: {iter_num}] snow_val_kld: {kld_snow_info:.3f} snow_val_cc: {cc_snow_info:.3f}")
+            print(f"[iter: {iter_num}] val_kld: {kld_info:.3f} val_cc: {cc_info:.3f}")
+            print(f"[iter: {iter_num}] snow_val_kld: {kld_snow_info:.3f} snow_val_cc: {cc_snow_info:.3f}")
 
             train_distribution_matching_loss = train_task_loss = train_total_loss = 0.0
             
     
      
-        loss, lr = train_trival_one_epoch(args, model, optimizer, train_data_loader, val_data_loader, None, device, epoch, lr_scheduler,
-                                        print_freq=args.print_freq, scaler=None)
-        lr = optimizer.param_groups[0]["lr"]
+        # loss, lr = train_trival_one_epoch(args, model, optimizer, train_data_loader, val_data_loader, None, device, epoch, lr_scheduler,
+        #                                 print_freq=args.print_freq, scaler=None)
+        # lr = optimizer.param_groups[0]["lr"]
         # lr_scheduler.step()
 
-        save_file = {"model": model.state_dict(),
-                     "optimizer": optimizer.state_dict(),
-                     "lr_scheduler": lr_scheduler.state_dict(),
-                     "epoch": epoch,
-                     "args": args}
-  
-        torch.save(save_file, "save_weights/model_{}_epoch_{}.pth".format(args.name, epoch))
+            save_file = {"model": model.state_dict(),
+                        "optimizer": optimizer.state_dict(),
+                        "lr_scheduler": lr_scheduler.state_dict(),
+                        "iter": num_iter,
+                        "args": args}
+    
+            torch.save(save_file, Path(args.save_folder) / "model_{}_iter_{}.pth".format(args.name, iter_num))
         
-        total_time = time.time() - start_time
-        total_time_str = str(datetime.timedelta(seconds=int(total_time)))
-        print("training time {}".format(total_time_str))
+            if cc_max  <= cc_info:
+                torch.save(save_file, Path(args.save_folder) / "model_best_{}_{}_{}_{}_{}.pth".format(
+                    args.name, "{:.5f}".format(cc_info), "{:.5f}".format(kld_info)  ,
+                    "{:.5f}".format(cc_snow_info), "{:.5f}".format(kld_snow_info)))
+                cc_max  = cc_info
+            total_time = time.time() - start_time
+            total_time_str = str(datetime.timedelta(seconds=int(total_time)))
+            print("training time {}".format(total_time_str))
 
 
 if __name__ == '__main__':
@@ -593,5 +650,5 @@ if __name__ == '__main__':
     if not os.path.exists("./save_weights"):
         os.mkdir("./save_weights")
 
-    main(a, 'snow')
+    main(a)
     # wandb.agent(sweep_id, train, count=)
