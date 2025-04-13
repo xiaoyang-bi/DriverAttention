@@ -53,9 +53,19 @@ def main(args):
         else: raise NotImplementedError
 
 
-
+        # import pdb; pdb.set_trace()
         checkpoint = torch.load('./save_weights/model_best_{}.pth'.format(args.save_model))
-        model.load_state_dict(checkpoint['model'])
+        
+        # only use APB
+        state_dict = checkpoint['model']
+        prefixes_to_remove = ['ub1', 'ub2', 'ub3']
+        keys_to_remove = [key for key in state_dict if any(key.startswith(prefix) for prefix in prefixes_to_remove)]
+        for key in keys_to_remove:
+            del state_dict[key]
+        model.load_state_dict(state_dict, strict=False)
+
+
+        model.load_state_dict(checkpoint['model'], strict=False)
         model = model.to('cuda')
 
         kld_metric, cc_metric = evaluate(args, model, data_loader, device='cuda')
