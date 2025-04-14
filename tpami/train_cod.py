@@ -507,7 +507,7 @@ def main(args):
     # import pdb; pdb.set_trace()
     dataset = {
         "source_train": SceneDataset(args.data_path, mode='train', cam_subdir='camera',  p_dic = args.p_dic, use_prior=args.use_prior),
-        "target_train": SceneDataset(args.data_path, mode='train', cam_subdir=cor, p_dic = args.p_dic, use_prior=args.use_prior),
+        "target_train": SceneDataset(args.data_path, mode='test', cam_subdir=cor, p_dic = args.p_dic, use_prior=args.use_prior),
         "target_test": SceneDataset(args.data_path, mode='test', cam_subdir=cor, p_dic = args.p_dic, use_prior=args.use_prior),
         "source_test": SceneDataset(args.data_path, mode='test', p_dic = args.p_dic, use_prior=args.use_prior)
         
