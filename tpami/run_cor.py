@@ -30,12 +30,42 @@ def parse_args():
     return parser.parse_args()
 
 
+def evaluate_batch(args, model, data_loader, device):
+    # import pdb; pdb.set_trace()
+    model.eval()
+    kld_metric = utils.KLDivergence()
+    cc_metric = utils.CC()
+    if args.val_aucs:
+        aucs_metric = utils.SAuc()
+    metric_logger = utils.MetricLogger(delimiter="  ")
+    header = 'Test:'
+    with torch.no_grad():
+        os.makedirs('./output', exist_ok=True)
+        count = 0
+        for images, targets in metric_logger.log_every(data_loader, 100, header):
+            images, targets = images.to(device), targets.to(device)
+            if args.model.find('uncertainty') != -1:
+                output = model(images)
+            else:
+                output, _ = model(images)
+            batch_size = images.size(0)
+            for i in range(batch_size):
+                kld_metric.update(output[i].unsqueeze(0), targets[i].unsqueeze(0))
+                cc_metric.update(output[i].unsqueeze(0), targets[i].unsqueeze(0))
+                if args.val_aucs:
+                    aucs_metric.update(output[i].unsqueeze(0), targets[i].unsqueeze(0))
+    if args.val_aucs:
+        return kld_metric, cc_metric, aucs_metric
+    else:
+        return kld_metric, cc_metric
+
+
 def main(args):
 
     results = {}
-    # cors = [None, 'snow', 'fog', 'gaussian_noise', 'motion_blur', 'impulse_noise', 'jpeg_compression']
+    cors = ['gaussian_noise', None, 'snow', 'fog', 'motion_blur', 'impulse_noise', 'jpeg_compression']
     # cors = ['motion_blur']
-    cors = ['gaussian_noise']
+    # cors = ['gaussian_noise']
     
 
     for cor in cors:
@@ -43,7 +73,7 @@ def main(args):
         dataset = SceneDatasetCor(args.data_root, mode='test', noise_type=cor)
         print(len(dataset))
         data_loader = DataLoader(dataset,
-                                batch_size=1,  # must be 1
+                                batch_size=32,  # must be 1
                                 num_workers=8,
                                 pin_memory=True)
 
@@ -70,7 +100,10 @@ def main(args):
         model.load_state_dict(checkpoint['model'], strict=False)
         model = model.to('cuda')
 
-        kld_metric, cc_metric = evaluate(args, model, data_loader, device='cuda')
+        # kld_metric, cc_metric = evaluate(args, model, data_loader, device='cuda')
+        kld_metric, cc_metric = evaluate_batch(args, model, data_loader, device='cuda')
+        
+        
         kld_info, cc_info = kld_metric.compute(), cc_metric.compute()
         results[cor] = {'kld': kld_info, 'cc': cc_info}
         print(f"val_kld: {kld_info:.3f} val_cc: {cc_info:.3f}")

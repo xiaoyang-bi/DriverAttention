@@ -51,9 +51,9 @@ class SceneDatasetCor(Dataset):
         scene_list_path = self.root/(phase + '.txt') if self.noise_type is None else  self.root/(phase + '_cor.txt')
         self.scenes = [self.root/folder.strip()
                     for folder in open(scene_list_path) if not folder.strip().startswith("#")]
-        #if os.path.exists(str(self.scenes[0]/(self.cam_subdir + '_224_224'))):
-                #self.cam_subdir = self.cam_subdir + "_224_224"
-                #print("use resized")
+        if os.path.exists(str(self.scenes[0]/(self.cam_subdir + '_224_224'))):
+                self.cam_subdir = self.cam_subdir + "_224_224"
+                print("use resized")
         if os.path.exists(str(self.scenes[0]/(self.gaze_subdir + '_224_224'))):
                 self.gaze_subdir = self.gaze_subdir + "_224_224"
                 print("use resized")      

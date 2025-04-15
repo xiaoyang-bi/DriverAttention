@@ -181,7 +181,7 @@ def train_one_epoch(args, model, optimizer, data_loader, val_data_loader, val_sn
             lr = optimizer.param_groups[0]["lr"]
             metric_logger.update(loss=loss.item(), lr=lr)
             train_one_epoch.iter_counter += 1  # 更新计数器
-            if train_one_epoch.iter_counter % 1000 == 0:
+            if train_one_epoch.iter_counter % 200 == 0:
                 save_file = {"model": model.state_dict(),
                         "optimizer": optimizer.state_dict(),
                         "lr_scheduler": lr_scheduler.state_dict(),
@@ -217,9 +217,9 @@ def train_one_epoch(args, model, optimizer, data_loader, val_data_loader, val_sn
 
                     # 当前最佳
 
-                if train_one_epoch.current_cc  <=cc_info:
-                    torch.save(save_file, "save_weights/model_best_{}_{}_{}.pth".format(args.name, "{:.5f}".format(cc_info), "{:.5f}".format(kld_info) ) )
-                    train_one_epoch.current_cc  = cc_info
+                # if train_one_epoch.current_cc  <=cc_info:
+                torch.save(save_file, "save_weights/model_best_{}_{}_{}_{}_{}_{}_{}.pth".format(args.name, "{:.5f}".format(cc_info), "{:.5f}".format(kld_info), "{:.5f}".format(cc_snow_info), "{:.5f}".format(kld_snow_info), "{:.5f}".format(cc_gau_info), "{:.5f}".format(kld_gau_info))) 
+                    # train_one_epoch.current_cc  = cc_info
             # torch.save(save_file, "save_weights/model_{}_epoch_{}.pth".format(args.name, epoch) )
             
 
