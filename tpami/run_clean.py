@@ -25,6 +25,7 @@ def cal_cc(pred: torch.Tensor, gt: torch.Tensor):
 
 def parse_args():
     parser = argparse.ArgumentParser()
+    parser.add_argument('--backbone', default='mobileViT', help="resnet, ConvNext")
     parser.add_argument('--model', default='uncertainty-m', help="uncertainty-r/-c, resnet, ConvNext")
     parser.add_argument('--data-path', default='./dataset', help='where to store data')
     parser.add_argument('--dataset', default='dr')
@@ -109,7 +110,7 @@ def infer(args, model, data_loader, device):
                 count += 1
 
 def evaluate_batch(args, model, data_loader, device):
-    import pdb; pdb.set_trace()
+    #import pdb; pdb.set_trace()
     model.eval()
     kld_metric = utils.KLDivergence()
     cc_metric = utils.CC()
@@ -171,7 +172,7 @@ def main(args):
 
     if args.model == 'uncertainty-m':
         from models.model import Model
-        model = Model('mobileViT', input_dim=args.input_dim).cuda()
+        model = Model(args.backbone, input_dim=args.input_dim).cuda()
     else : raise NotImplementedError
 
 

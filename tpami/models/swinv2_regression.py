@@ -120,7 +120,7 @@ class Decoder(nn.Module):
 
     def _make_deconv_layer(self, num_layers, num_filters, num_kernels):
         """Make deconv layers."""
-        import pdb; pdb.set_trace()
+        # import pdb; pdb.set_trace()
         layers = []
         in_planes = self.in_channels
         for i in range(num_layers):
