@@ -79,6 +79,28 @@ def full(pred, gt):
     return loss
 
 
+def mixup_data(x, pseudos,  alpha=1.,  use_cuda=True):
+    '''random select a data in batch and mix it
+    attenttion is better not divide the max
+    '''
+    if alpha > 0:
+        lam = np.random.beta(alpha, alpha)
+    else:
+        lam = 1
+
+    batch_size = x.size()[0]
+    if use_cuda:
+        index = torch.randperm(batch_size).cuda()
+    else:
+        index = torch.randperm(batch_size)
+
+    mix_data = lam*x + (1-lam)*x[index, :]
+
+    for pseudo in pseudos:
+        pseudo = lam * pseudo + (1-lam) * pseudo[index, :]
+
+    return mix_data, pseudos
+
 def evaluate_batch(args, model, data_loader, device):
     # import pdb; pdb.set_trace()
     model.eval()
@@ -274,7 +296,8 @@ def train_trival_one_epoch(args, model, optimizer, data_loader, val_data_loader,
         for image, p in metric_logger.log_every(data_loader, print_freq, header):
             image = image.to(device)
             p = [ps.to(device) for ps in p]
-            image, p = gen_mixup(model, image, p)
+            # print('use mixup')
+            image, p = mixup_data(image, p)
             with torch.cuda.amp.autocast(enabled=scaler is not None):
                 output, e = model(image, p)
                 loss = criterion(output, p, e, args.loss_func)
