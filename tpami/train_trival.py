@@ -328,13 +328,13 @@ def main(args):
         lr = optimizer.param_groups[0]["lr"]
         # lr_scheduler.step()
 
-        save_file = {"model": model.state_dict(),
-                     "optimizer": optimizer.state_dict(),
-                     "lr_scheduler": lr_scheduler.state_dict(),
-                     "epoch": epoch,
-                     "args": args}
+        # save_file = {"model": model.state_dict(),
+        #              "optimizer": optimizer.state_dict(),
+        #              "lr_scheduler": lr_scheduler.state_dict(),
+        #              "epoch": epoch,
+        #              "args": args}
   
-        torch.save(save_file, "save_weights/model_{}_epoch_{}.pth".format(args.name, epoch))
+        # torch.save(save_file, "save_weights/model_{}_epoch_{}.pth".format(args.name, epoch))
         
         total_time = time.time() - start_time
         total_time_str = str(datetime.timedelta(seconds=int(total_time)))

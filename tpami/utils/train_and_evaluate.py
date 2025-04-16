@@ -226,6 +226,38 @@ def train_one_epoch(args, model, optimizer, data_loader, val_data_loader, val_sn
     return metric_logger.meters["loss"].global_avg, metric_logger.meters["lr"].global_avg
 
 
+def gen_mixup(model, x, pseudos, p=1, use_cuda=True):
+    '''
+    eval all the batch data
+    change to train mode at final 
+    '''
+    model.eval()
+    with torch.no_grad():
+        atten = model(x)
+    atten = atten.detach()
+
+    eps = 1e-7
+    batch_size = x.size()[0]
+    if use_cuda:
+        index = torch.randperm(batch_size).cuda()
+    else:
+        index = torch.randperm(batch_size)
+    random_data = x[index, :]
+    random_atten = atten[index, :]
+    mix_atten_sum =  atten + random_atten
+
+
+    for i, pseudo in enumerate(pseudos):
+        new_pseudo = (pseudo * (atten + eps) + pseudo[index, :] * (random_atten + eps)) / (mix_atten_sum + 2*eps)
+        # pseudos[i] = torch.cat([pseudo, new_pseudo], dim=0)
+        pseudos[i] = new_pseudo
+
+
+    mix_data = (x * (atten + eps) + random_data * (random_atten + eps)) / (mix_atten_sum + 2*eps)
+    # mix_data = torch.cat([x, mix_data], dim=0)
+    model.train()
+    return mix_data, pseudos
+
 def train_trival_one_epoch(args, model, optimizer, data_loader, val_data_loader, val_snow_data_loader,  device, epoch, lr_scheduler, print_freq=10, scaler=None):
     if not hasattr(train_one_epoch, "iter_counter"):
         train_one_epoch.iter_counter = 0  # 初始化计数器
@@ -242,6 +274,7 @@ def train_trival_one_epoch(args, model, optimizer, data_loader, val_data_loader,
         for image, p in metric_logger.log_every(data_loader, print_freq, header):
             image = image.to(device)
             p = [ps.to(device) for ps in p]
+            image, p = gen_mixup(model, image, p)
             with torch.cuda.amp.autocast(enabled=scaler is not None):
                 output, e = model(image, p)
                 loss = criterion(output, p, e, args.loss_func)
