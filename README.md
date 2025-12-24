@@ -4,7 +4,17 @@ This repository is an extension of our ICCV conference paper, **"Unsupervised Se
 
 ## Dataset Preparation
 
-The DriverAttention-C dataset can be downloaded from [this link](https://drive.google.com/file/d/1p9rmy3dXESSaHiGHApxcy-aQlAymDzz7/view?usp=sharing).
+To systematically evaluate robustness, we introduce **DriverAttention-C**, a comprehensive benchmark comprising over **126k frames** across three synthetic subsets. Additionally, we provide **DriverAttention-Snow-C**, a real-world dataset featuring over **49k manually re-annotated frames** to ensure validity.
+
+The datasets and ground truth labels can be downloaded via the links below:
+
+- **DriverAttention-C (Synthetic):**
+  - [Images and Camera Effects Ground Truth](https://drive.google.com/file/d/1p9rmy3dXESSaHiGHApxcy-aQlAymDzz7/view?usp=sharing)
+  - [Adverse Weather Ground Truth](https://drive.google.com/file/d/1pYCBxmjjJ-4yn4IsueUBlCva7jVfJIJR/view?usp=drive_link)
+
+- **DriverAttention-Snow-C (Real-world):**
+  - [Images](https://drive.google.com/file/d/1pDkzthIsLevGuEKBXmuXvW-5HowGRp4s/view?usp=drive_link)
+  - [Ground Truth](https://drive.google.com/file/d/1lbP-1yWTc1Qn9Vty3ybFxFVoSbTxdbJg/view?usp=drive_link)
 
 The dataset is organized as follows:
 ```
@@ -38,10 +48,11 @@ python train_robo_cor.py --name exp_name --data-path path/to/data --topK 8 --mix
 ```
 
 **Evaluation:**
+To calculate **KLD and CC**, execute:
 ```bash
 python test_cor.py --data-path path/to/data --save_model model_name
 ```
-
+For other metrics (**SIM, AUC-Borji, AUC-Judd, NSS**), please follow the implementation provided [here](https://github.com/zhao-chunyu/SaliencyMamba/tree/main/metrics).
 ## Central Bias
 
 **Training:**
