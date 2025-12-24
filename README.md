@@ -4,7 +4,8 @@ This repository is an extension of our ICCV conference paper, **"Unsupervised Se
 
 ## Dataset Preparation
 
-To systematically evaluate robustness, we introduce **DriverAttention-C**, a comprehensive benchmark comprising over **126k frames** across three synthetic subsets. Additionally, we provide **DriverAttention-Snow-C**, a real-world dataset featuring over **49k manually re-annotated frames** to ensure validity.
+To systematically evaluate robustness, we introduce **DriverAttention-C**, a new comprehensive benchmark comprising over **126k** frames across three synthetic
+subsets and a real-world **DriverAttention-Snow-C** dataset , featuring over **49k** manually re-annotated frames to ensure validity.
 
 The datasets and ground truth labels can be downloaded via the links below:
 
