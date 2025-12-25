@@ -40,13 +40,16 @@
 
 To systematically evaluate robustness, we introduce **DriverAttention-C**, comprising over **126k** frames across synthetic and real-world scenarios. It features **49k+** manually re-annotated frames to ensure ground truth validity under adverse conditions.
 
+<div align="center">
+    
 | Data Type | Subset | Images | Corruption Categories | Manual Annotations |
-| :--- | :--- | :--- | :--- | :--- |
-| **Synthetic** | BDD-A-C, DR(eye)VE-C, DADA-C | 115,332  | Noise, Blur, Digital, Weather | 38,444 |
+| :---: | :---: | :---: | :---: | :---: |
+| **Synthetic** | BDD-A-C, DR(eye)VE-C, DADA-C | 115,332 | Noise, Blur, Digital, Weather | 38,444 |
 | **Real-world**| DriverAttention-Snow-C | 10,743 | Authentic Snowy Scenes | 10,743 |
 
+</div>
 
-<img src="resources/benchmark.png" width="100%"/>
+<img src="resources/cor_vis.png" width="100%"/>
 
 ### Dataset Preparation
 The datasets and ground truth labels can be downloaded via:
@@ -60,7 +63,10 @@ The datasets and ground truth labels can be downloaded via:
 
 Extensive experiments demonstrate that our unsupervised method matches or surpasses state-of-the-art fully supervised approaches, reducing **corruption degradation by 7.2%** and mitigating **central bias by 11.2%** in terms of KLD.
 
-<img src="resources/cor_vis.png" width="100%"/>
+<img src="resources/cor_1.png" width="100%"/>
+<img src="resources/cor_2.png" width="100%"/>
+<img src="resources/lt.png" width="100%"/>
+
 
 ---
 
